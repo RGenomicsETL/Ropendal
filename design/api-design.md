@@ -49,9 +49,9 @@ Read/write are intentionally asymmetric at the R boundary. Reads can complete
 into Rust-owned bytes first and materialize later. Writes from ordinary R values
 must serialize or copy into stable owned bytes before background upload. The
 `OpendalBytes` provides the copy-minimized R-facing byte handle: remote bytes can
-be read into Rust-owned storage, passed around in R, converted to `raw`
-explicitly via `as.raw()`, inspected with `length()`, or written back without
-routing through another R raw-vector payload.
+be read into Rust-owned storage, passed around in R, exposed as a raw ALTREP
+facade explicitly via `as.raw()`, inspected with `length()`, or written back
+without routing through another R raw-vector payload.
 
 R connections are compatibility adapters, not the core abstraction. A future
 connection API should wrap read/write iterators so `readBin()`, `writeBin()`,

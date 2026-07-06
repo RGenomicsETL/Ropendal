@@ -107,15 +107,15 @@ buffers.
 
 ## Bytes, ALTREP, and C consumers
 
-The goal is to avoid materializing an R `raw` vector until a caller actually
-requires one. `OpendalBytes` should remain the storage/lifetime owner and the
-ALTREP raw vector should be a first-class R-vector facade over it.
+The goal is to avoid materializing an ordinary R `raw` vector until a caller
+actually requires one. `OpendalBytes` remains the storage/lifetime owner and the
+ALTREP raw vector is a first-class R-vector facade over it.
 
 ```r
 bytes <- fs_read_bytes(fs, "x.bin")
 length(bytes)
 fs_write(fs, "copy.bin", bytes)
-raw <- as.raw(bytes)              # today: materializes; future: may be ALTREP
+raw <- as.raw(bytes)              # raw ALTREP facade; materializes on pointer access
 ```
 
 The right distinction is not "ALTREP for R, C API for true C". The right
@@ -124,25 +124,25 @@ distinction is:
 1. **ALTREP raw path:** for C consumers that accept a `SEXP` raw vector and use
    the R vector API. These consumers can iterate without forcing a full raw
    materialization if they use `RAW_GET_REGION()`, element access, or compact-
-   representation-friendly APIs. Ropendal's ALTREP `data1` can store/protect the
-   `OpendalBytes` external holder; `Get_region` can memcpy only the requested
-   byte window into the caller's buffer. Full materialization is delayed until a
-   pointer-requesting or mutation-requiring access path makes it necessary.
+   representation-friendly APIs. Ropendal's ALTREP `data1` stores/protects a Rust byte holder;
+   `Get_region` memcpy's only the requested byte window into the caller's
+   buffer. Full materialization is delayed until a pointer-requesting or
+   mutation-requiring access path makes it necessary.
 2. **Pure C ABI path:** for downstream packages that explicitly depend on
    Ropendal and want direct async, monitors, readv/read-into, caller-owned
    buffers, or an R-independent ABI boundary. This path is not "more true" than
    ALTREP; it is a different integration contract.
 
-Therefore, ALTREP should be a core C-facing compatibility feature, not a thin
-R-only wrapper.
+Therefore, ALTREP is treated as a core C-facing compatibility feature, not a
+thin R-only wrapper.
 
-### Proposed ALTREP behavior
+### ALTREP behavior
 
-The ALTREP raw class should store an external pointer or protected object in
-`data1` that owns the `OpendalBytes` lifetime. Optional `data2` can store a
-materialized raw cache, range index, or flags.
+The ALTREP raw class stores an external pointer in `data1` that owns a Rust byte
+holder derived from `OpendalBytes`. `data2` stores the materialized R raw cache
+after pointer access.
 
-Suggested behavior:
+Current behavior:
 
 ```text
 Length(x):
@@ -152,30 +152,23 @@ Elt(x, i):
   copy one byte from OpendalBytes; no full materialization
 
 Get_region(x, i, n, buf):
-  copy requested region from OpendalBytes into buf; no full materialization
+  copy requested region from data2 if materialized, otherwise from OpendalBytes;
+  no full materialization
 
 Dataptr_or_null(x):
-  return a stable read-only pointer only when the held bytes are contiguous and
-  the external holder in `data1` keeps them alive; otherwise return NULL
+  return NULL until the object has already materialized into `data2`
 
 Dataptr(x, writable):
-  if writable:
-    materialize into an R-owned RAWSXP stored in `data2` and return that pointer
-  else if a stable contiguous read-only pointer is available:
-    return that pointer while `data1` keeps the holder alive
-  else:
-    materialize into the R-owned RAWSXP cache and return that pointer
+  materialize into an R-owned RAWSXP stored in `data2` and return that pointer
 ```
 
 The important distinction is `Dataptr(writable = TRUE)`: writable raw-vector
-access must never point into OpenDAL/Rust `Buffer` storage. Read-only pointer
-access can be valid when the buffer is contiguous and the ALTREP object keeps the
-external byte holder alive through `data1`; non-contiguous buffers should keep
-using `Elt`/`Get_region` or materialize. C code can always violate contracts by
-writing through a read-only pointer, but that is not a valid Ropendal/R vector
-API use. This still gives `RAW_GET_REGION()`-style consumers efficient block
+access must never point into OpenDAL/Rust `Buffer` storage. The current
+implementation is conservative and materializes for any `DATAPTR()` request;
+future profiling can decide whether read-only contiguous pointers are worth
+exposing. `RAW_GET_REGION()`-style consumers already get efficient block
 iteration with bounded copying and no full raw-vector allocation, while code
-that requests writable memory crosses the materialization boundary.
+that requests pointer memory crosses the materialization boundary.
 
 ### Pure C ABI still matters
 
@@ -572,9 +565,11 @@ adapters can live on top.
 ## Suggested milestones
 
 1. Document the opinionated architecture and keep `function(object, ...)`.
-2. Stabilize `OpendalBytes` lifetime, ALTREP ownership, and C-level byte rules.
-3. Make `as.raw.OpendalBytes()` eligible to return a first-class ALTREP raw
-   integration layer, with `Get_region` avoiding full materialization.
+2. Stabilize `OpendalBytes` lifetime, ALTREP ownership, and C-level byte rules
+   (`as.raw.OpendalBytes()` now returns a first-class raw ALTREP facade with
+   region access and conservative pointer materialization).
+3. Profile whether read-only contiguous `DATAPTR()` should avoid materializing
+   after the current safer ALTREP path has downstream coverage.
 4. Add `byte_ranges()` request objects feeding `fs_read()` (implemented for R read wrappers).
 5. Add `fs_connection()` backed by read/write iterators.
 6. Add read-only `fs_zip()` over any range-readable parent filesystem.

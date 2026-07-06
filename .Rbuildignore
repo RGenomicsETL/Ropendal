@@ -2,6 +2,7 @@
 ^\.gitignore$
 ^\.github$
 ^\.sync$
+^\.pi$
 ^AGENTS\.md$
 ^design$
 ^benchmarks$

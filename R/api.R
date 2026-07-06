@@ -290,6 +290,9 @@
 #' `opendal_bytes_slice()` returns another immutable `OpendalBytes` handle for a
 #' byte subrange without first materializing the complete handle as an R raw
 #' vector. `offset` is zero-based and `end` is exclusive, matching read ranges.
+#' `as.raw()` on an `OpendalBytes` handle returns a raw ALTREP facade: element
+#' and region access copy only requested bytes, while pointer access materializes
+#' an R-owned raw vector.
 #' @return Filesystem handles, raw vectors, `OpendalBytes` handles,
 #'   deserialized R objects, metadata lists, logical results, Aio handles, or
 #'   classed error values depending on the operation and mode.
@@ -1201,7 +1204,7 @@ opendal_bytes_slice <- function(x, offset = 0, size = NULL, end = NULL) {
 
 #' @export
 #' @noRd
-as.raw.OpendalBytes <- function(x) opendal_bytes_as_raw(x)
+as.raw.OpendalBytes <- function(x) opendal_bytes_as_altrep_raw(x)
 
 #' @export
 #' @noRd

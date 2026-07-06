@@ -9,6 +9,7 @@ crate-type = ["staticlib", "lib"]
 
 [dependencies]
 savvy = { version = "0.10.2", features = ["altrep"] }
+savvy-ffi = "0.10.2"
 opendal = { version = "0.57", default-features = false, features = [
     "blocking",
     "executors-tokio",

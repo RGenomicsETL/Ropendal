@@ -24,6 +24,16 @@ static SEXP ropendal_wasm_savvy_error(void) {
     return (SEXP)(((uintptr_t)msg) | (uintptr_t)1);
 }
 
+SEXP savvy_init_opendal_bytes_altrep__ffi(DllInfo* c_arg__dll_info) {
+    (void)c_arg__dll_info;
+    return R_NilValue;
+}
+
+SEXP savvy_opendal_bytes_as_altrep_raw__ffi(SEXP c_arg__bytes) {
+    (void)c_arg__bytes;
+    return ropendal_wasm_savvy_error();
+}
+
 SEXP savvy_opendal_bytes_as_raw__ffi(SEXP c_arg__bytes) {
     (void)c_arg__bytes;
     return ropendal_wasm_savvy_error();
@@ -32,6 +42,11 @@ SEXP savvy_opendal_bytes_as_raw__ffi(SEXP c_arg__bytes) {
 SEXP savvy_opendal_bytes_from_raw__ffi(SEXP c_arg__data) {
     (void)c_arg__data;
     return ropendal_wasm_savvy_error();
+}
+
+SEXP savvy_opendal_bytes_is_altrep_raw__ffi(SEXP c_arg__x) {
+    (void)c_arg__x;
+    return Rf_ScalarLogical(0);
 }
 
 SEXP savvy_opendal_bytes_len__ffi(SEXP c_arg__bytes) {

@@ -74,7 +74,7 @@ Always run by default. Use `tempfile()` roots only. Coverage:
 
 - construct `opendal("fs", root = tempdir)`
 - write/read raw bytes
-- `OpendalBytes` read handles, `as.raw()`/`length()`, Aio collection, and write/replace/append acceptance
+- `OpendalBytes` read handles, `as.raw()` raw ALTREP facade behavior, `length()`, Aio collection, and write/replace/append acceptance
 - read scalar ranges
 - read multiple ranges from one file
 - read many paths with list-of-ranges

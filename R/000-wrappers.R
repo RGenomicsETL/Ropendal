@@ -38,6 +38,11 @@ NULL
 }
 
 
+`opendal_bytes_as_altrep_raw` <- function(`bytes`) {
+  .Call(savvy_opendal_bytes_as_altrep_raw__impl, `bytes`)
+}
+
+
 `opendal_bytes_as_raw` <- function(`bytes`) {
   .Call(savvy_opendal_bytes_as_raw__impl, `bytes`)
 }
@@ -45,6 +50,11 @@ NULL
 
 `opendal_bytes_from_raw` <- function(`data`) {
   .Call(savvy_opendal_bytes_from_raw__impl, `data`)
+}
+
+
+`opendal_bytes_is_altrep_raw` <- function(`x`) {
+  .Call(savvy_opendal_bytes_is_altrep_raw__impl, `x`)
 }
 
 

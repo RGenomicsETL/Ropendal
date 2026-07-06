@@ -4,10 +4,12 @@
 #' substrate for Zarr-like chunk layouts and other index-driven readers that want
 #' store-relative keys without leaving Ropendal's byte-first filesystem API.
 #'
-#' `store_read()` returns `OpendalBytes` by default so callers can stay below R
-#' raw-vector materialization until they explicitly ask for `mode = "raw"` or
-#' `as.raw()`. The store layer is intentionally byte-only: serializers,
-#' deserializers, codecs, and format parsers belong above it.
+#' `store_read()` returns `OpendalBytes` by default so callers can stay below
+#' ordinary R raw-vector materialization. `mode = "raw"` or `as.raw()` exposes
+#' the raw-vector API; for `OpendalBytes`, `as.raw()` returns a raw ALTREP facade
+#' that materializes only when R requires raw-vector pointer access. The store
+#' layer is intentionally byte-only: serializers, deserializers, codecs, and
+#' format parsers belong above it.
 #'
 #' `store_cache()` wraps a byte store in an explicit local full-object cache. It
 #' is useful for chunked layouts where each key is already a small block. Partial

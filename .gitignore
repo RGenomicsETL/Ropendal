@@ -41,6 +41,7 @@ src/rust/vendor/
 # Tooling caches
 .cache/
 .cargo-check/
+.pi/
 .DS_Store
 
 # Local reference checkouts are large and not package source

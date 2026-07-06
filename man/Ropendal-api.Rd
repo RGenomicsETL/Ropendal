@@ -442,4 +442,7 @@ row-oriented index tables.
 \code{opendal_bytes_slice()} returns another immutable \code{OpendalBytes} handle for a
 byte subrange without first materializing the complete handle as an R raw
 vector. \code{offset} is zero-based and \code{end} is exclusive, matching read ranges.
+\code{as.raw()} on an \code{OpendalBytes} handle returns a raw ALTREP facade: element
+and region access copy only requested bytes, while pointer access materializes
+an R-owned raw vector.
 }

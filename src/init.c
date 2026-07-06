@@ -39,6 +39,16 @@ SEXP handle_result(SEXP res_) {
     return (SEXP)res;
 }
 
+SEXP savvy_init_opendal_bytes_altrep__impl(DllInfo* c_arg__dll_info) {
+    SEXP res = savvy_init_opendal_bytes_altrep__ffi(c_arg__dll_info);
+    return handle_result(res);
+}
+
+SEXP savvy_opendal_bytes_as_altrep_raw__impl(SEXP c_arg__bytes) {
+    SEXP res = savvy_opendal_bytes_as_altrep_raw__ffi(c_arg__bytes);
+    return handle_result(res);
+}
+
 SEXP savvy_opendal_bytes_as_raw__impl(SEXP c_arg__bytes) {
     SEXP res = savvy_opendal_bytes_as_raw__ffi(c_arg__bytes);
     return handle_result(res);
@@ -46,6 +56,11 @@ SEXP savvy_opendal_bytes_as_raw__impl(SEXP c_arg__bytes) {
 
 SEXP savvy_opendal_bytes_from_raw__impl(SEXP c_arg__data) {
     SEXP res = savvy_opendal_bytes_from_raw__ffi(c_arg__data);
+    return handle_result(res);
+}
+
+SEXP savvy_opendal_bytes_is_altrep_raw__impl(SEXP c_arg__x) {
+    SEXP res = savvy_opendal_bytes_is_altrep_raw__ffi(c_arg__x);
     return handle_result(res);
 }
 
@@ -367,8 +382,10 @@ SEXP savvy_OpendalWriteIter_write__impl(SEXP self__, SEXP c_arg__data) {
 
 
 static const R_CallMethodDef CallEntries[] = {
+    {"savvy_opendal_bytes_as_altrep_raw__impl", (DL_FUNC) &savvy_opendal_bytes_as_altrep_raw__impl, 1},
     {"savvy_opendal_bytes_as_raw__impl", (DL_FUNC) &savvy_opendal_bytes_as_raw__impl, 1},
     {"savvy_opendal_bytes_from_raw__impl", (DL_FUNC) &savvy_opendal_bytes_from_raw__impl, 1},
+    {"savvy_opendal_bytes_is_altrep_raw__impl", (DL_FUNC) &savvy_opendal_bytes_is_altrep_raw__impl, 1},
     {"savvy_opendal_bytes_len__impl", (DL_FUNC) &savvy_opendal_bytes_len__impl, 1},
     {"savvy_opendal_bytes_slice__impl", (DL_FUNC) &savvy_opendal_bytes_slice__impl, 3},
     {"savvy_opendal_codec_decode__impl", (DL_FUNC) &savvy_opendal_codec_decode__impl, 2},
@@ -441,5 +458,5 @@ void R_init_Ropendal(DllInfo *dll) {
     R_useDynamicSymbols(dll, FALSE);
 
     // Functions for initialization, if any.
-
+    savvy_init_opendal_bytes_altrep__impl(dll);
 }

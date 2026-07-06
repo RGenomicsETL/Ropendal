@@ -377,15 +377,13 @@ and is not safe for ordinary R vectors because of mutation and GC interaction.
 The R-facing byte object is now explicit: immutable `OpendalBytes` values are
 R-GC-managed external byte holders around OpenDAL/Rust `Buffer` storage. The R
 object owns reachability and finalization through an external pointer; the byte
-storage is not an R `RAWSXP` payload unless materialized. `length()` is cheap,
-`as.raw()` currently materializes to an R raw vector, and the handle can be
-passed back to Ropendal writes without routing through another R raw-vector
-payload. A future ALTREP raw facade is feasible by storing the external holder in
-ALTREP `data1`; `Elt`/`Get_region` can copy requested bytes without full
-materialization, and read-only `Dataptr()`/`Dataptr_or_null()` can expose a stable
-contiguous pointer when the underlying buffer shape permits it. Writable
-`Dataptr()` must materialize into an R-owned `RAWSXP` cache in `data2`. The main
-constraint is writable/raw-vector pointer semantics, not holder lifetime. If a
+storage is not an ordinary R `RAWSXP` payload unless materialized. `length()` is
+cheap, `as.raw()` returns a raw ALTREP facade with `Elt`/`Get_region` access, and
+the handle can be passed back to Ropendal writes without routing through another
+R raw-vector payload. The ALTREP path is conservative: `Dataptr_or_null()` returns
+`NULL` until materialization and `Dataptr()` materializes into an R-owned
+`RAWSXP` cache in `data2`. The main constraint is writable/raw-vector pointer
+semantics, not holder lifetime. If a
 user passes a normal R `raw`, matrix, character vector, or arbitrary object, the
 package still has to touch the R API on the R thread to copy or serialize.
 
@@ -661,9 +659,10 @@ Status: `implemented as a Rust-backed handle primitive`
 `opendal_bytes_slice(x, offset, size/end)` returns another immutable
 `OpendalBytes` handle for a subrange of an existing byte handle. The slice is
 created in Rust from OpenDAL's `Buffer::slice()` and does not first materialize
-the complete payload into an R raw vector. This is a stepping stone toward the
-future ALTREP raw facade: callers can keep range composition in the byte-handle
-layer, while `as.raw()` remains the explicit materialization boundary.
+the complete payload into an R raw vector. This composes with the raw ALTREP
+facade: callers can keep range composition in the byte-handle layer, while
+`as.raw()` returns a raw-vector facade that materializes only when pointer access
+requires it.
 
 ### R-facing fixed-size store block cache
 
@@ -695,3 +694,21 @@ perform cache fill/materialization on the R main thread after collection. Rare
 repair fallbacks for cache payloads that disappear or become corrupt between
 planning and collection may perform a synchronous parent refill on the R thread;
 the native C block-cache adapter keeps that repair path inside the native Aio.
+
+### `OpendalBytes` raw ALTREP facade
+
+Status: `implemented for as.raw.OpendalBytes()`
+
+`as.raw.OpendalBytes()` now returns an R `RAWSXP` ALTREP object backed by a Rust
+byte holder derived from the `OpendalBytes` buffer instead of immediately
+allocating an ordinary R-owned raw vector. The ALTREP class implements `Length`,
+`Elt`, and `Get_region` so element and region consumers can copy only requested
+bytes. `Dataptr_or_null()` returns `NULL` until materialization; `Dataptr()` is
+conservative and materializes into an R-owned raw vector stored in `data2`, so
+writable pointer access never aliases Rust/OpenDAL storage.
+
+This keeps the existing R contract (`is.raw(as.raw(bytes))`, indexing,
+comparison, serialization, and writes through existing raw-vector paths) while
+making byte handles usable by ALTREP-aware R/C consumers without forcing a full
+raw-vector allocation on region reads. Future profiling can decide whether a
+read-only contiguous pointer path is worth exposing.
