@@ -126,7 +126,7 @@ GitHub Actions jobs:
 | opaque `ropendal_store_t` lifecycle | yes | yes | no | yes | `ropendal_store_open()`, retain, and release create a prefix-scoped byte-store view over an existing filesystem handle |
 | async store read/write/read_into | yes | yes | no | yes | `ropendal_store_write_aio()`, `ropendal_store_replace_aio()`, `ropendal_store_read_aio()`, and `ropendal_store_read_into_aio()` use explicit key options and caller-owned buffer semantics without R API calls |
 | async store exists/list/delete | yes | yes | no | yes | `ropendal_store_exists_aio()`, `ropendal_store_ls_aio()`, and `ropendal_store_delete_aio()` return prefix-relative listing entries and support recursive deletion |
-| native store cache adapters | yes | yes | no | yes | `ropendal_store_cache_open()` wraps uncached parent/cache stores as an explicit full-object cache; `ropendal_store_block_cache_open()` adds a fixed-size range-aware block cache; roundtrip covers fill, last-modified/size validation, `validate = NONE` size-mismatch refresh and size-cycle/partial-miss invalidation, read-into/range assembly, whole-request partial-miss repair, and cached-store mutation invalidation |
+| native store cache adapters | yes | yes | no | yes | `ropendal_store_cache_open()` wraps uncached parent/cache stores as an explicit full-object cache; `ropendal_store_block_cache_open()` adds a fixed-size range-aware block cache; roundtrip covers fill, last-modified/size validation, `validate = NONE` size-mismatch refresh and size-cycle/partial-miss invalidation, wrong-length cached payload repair, read-into/range assembly, whole-request partial-miss repair, and cached-store mutation invalidation |
 
 ## Next implementation milestones
 
