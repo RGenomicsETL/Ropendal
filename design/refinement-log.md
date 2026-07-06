@@ -740,3 +740,17 @@ transforms: extend the Rust native codec registry, R `codec_config()` and
 and must not auto-select codecs. Metadata-aware Zarr array-to-bytes or
 array-to-array filters belong in the consumer package unless Ropendal grows a
 separate typed-array layer deliberately.
+
+### API seal checklist and dogfood applications
+
+Status: `documented`
+
+`design/api-seal-checklist-and-dogfood.md` now records the pre-freeze checklist
+for filesystem, byte, async, store, cache, C API, codec, and webR surfaces. It
+uses a Rarr-like byte-store backend and a zarrs_zip-style read-only ZIP store as
+primary stress tests. The zarrs_zip shape is important because it needs archive
+size, range reads, many-range reads, entry stats, and directory/prefix listings;
+Ropendal has the parent-object range primitives, but the exercise highlights
+public `store_stat()` / C store-stat and possibly structured immediate-directory
+listing as seal-candidate gaps. Writable ZIP remains out of scope for the
+key-to-bytes store because it needs archive transaction/finalization semantics.

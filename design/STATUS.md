@@ -130,6 +130,11 @@ GitHub Actions jobs:
 
 ## Next implementation milestones
 
+API-seal coordination lives in `design/api-seal-checklist-and-dogfood.md`, which
+turns the byte/filesystem/store surfaces into a checklist and defines dogfood
+applications such as a Rarr-like Zarr backend and a zarrs_zip-style read-only ZIP
+store adapter to reveal abstraction gaps before freezing the substrate.
+
 1. Add traversal fanout and stronger backend-token continuation for namespace iterators where OpenDAL/service support warrants them; `limit`, `start_after`, best-effort page `cursor` markers, and explicit entry `prefetch` buffering are implemented for listing collection and iterators.
 2. Extend the `OpendalBytes` byte boundary further if profiling warrants it. The first raw ALTREP facade is implemented for `as.raw.OpendalBytes()`: `data1` holds a Rust byte holder, `Elt`/`Get_region` copy requested regions, `Dataptr_or_null()` returns `NULL` until materialized, and `Dataptr()` materializes an R-owned `RAWSXP`. C API byte-handle, byte-store, full-object cache, and fixed-size block-cache accessors are implemented; R `opendal_bytes_slice()` provides a non-materializing subrange handle; `byte_ranges()` request objects cover index-heavy R range readers with tested pure-R VCF-like examples; `byte_store()` provides a bytes-first prefix-based key-to-bytes substrate for Zarr-like layouts; `store_cache()` adds an explicit local full-object cache for complete chunk-key reads; and `store_block_cache()` adds an explicit local fixed-size cache for scalar store ranges.
 3. Add any remaining memory/backpressure controls and service-level layers where they justify public API. `runtime_config(threads=)`, `layer_concurrent_limit(max=)`, `layer_timeout(request_timeout=, io_timeout=)`, explicit listing iterator `prefetch`, per-call batch/read/write/chunk/coalesce tuning, async operations, active Aio bindings, read/write/listing/walking iterators, and `OpendalBytes` handles are now wired through Rust/OpenDAL.
