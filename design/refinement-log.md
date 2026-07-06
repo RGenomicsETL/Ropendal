@@ -712,3 +712,31 @@ comparison, serialization, and writes through existing raw-vector paths) while
 making byte handles usable by ALTREP-aware R/C consumers without forcing a full
 raw-vector allocation on region reads. Future profiling can decide whether a
 read-only contiguous pointer path is worth exposing.
+
+### Rarr-style consumers and codec boundary
+
+Status: `documented as consumer-adapter contract`
+
+A Rarr-like Zarr package can treat `byte_store()` as a storage backend for
+read/write against directory and object-store Zarr array layouts. The storage
+contract is now broad enough for key normalization under a prefix, existence,
+read, create-only write, overwrite, list, delete, vectorized/Aio operations,
+full-object cache, fixed-size block cache, `OpendalBytes`/ALTREP raw exposure,
+and native async C `read_into` buffers. `fs_connection()` is not required for
+that class of consumer; it is a convenience adapter for R's connection API.
+
+Ropendal should still not become a Zarr engine. Metadata parsing, dtype and
+shape handling, chunk key mapping, fill behavior, partial-chunk patching,
+multi-key consistency policy, and Zarr codec/filter pipelines remain above the
+byte-store layer. Empty hierarchy markers may later motivate a `store_mkdir()`
+helper, and ZIP-backed stores require a ZIP filesystem/archive adapter. Read-only
+ZIP can compose with `byte_store()` once such an adapter exists; writable ZIP
+needs archive-level transaction/finalization semantics.
+
+Additional codecs fit the current architecture when they are explicit raw-byte
+transforms: extend the Rust native codec registry, R `codec_config()` and
+`mode = "codec"` plumbing, C `ropendal_codec_encode()` /
+`ropendal_codec_decode()`, docs, and tests. Store operations remain byte-only
+and must not auto-select codecs. Metadata-aware Zarr array-to-bytes or
+array-to-array filters belong in the consumer package unless Ropendal grows a
+separate typed-array layer deliberately.

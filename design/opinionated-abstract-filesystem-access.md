@@ -547,7 +547,50 @@ store_write(
 )
 ```
 
-ZIP composition should work naturally:
+### Rarr-style Zarr consumers
+
+A package in the style of Rarr can use `byte_store()` as its storage backend
+without waiting for `fs_connection()`. For directory or object-store Zarr array
+layouts, the required storage primitives are present: key normalization under a
+root prefix, existence checks, byte reads, create-only writes, overwrite writes,
+listing, deletion, vectorized/Aio operations, explicit full-object cache,
+explicit block/range cache, `OpendalBytes`/ALTREP raw materialization, and a
+native async C store API with caller-owned `read_into` buffers.
+
+The consumer still owns format semantics above the store layer:
+
+- Zarr v2/v3 metadata parsing and validation (`.zarray`, `zarr.json`, `.zattrs`,
+  `.zmetadata`);
+- chunk coordinate to key mapping and fill-value behavior for missing chunks;
+- dtype conversion, endianness, dimensions, and R array materialization;
+- Zarr codec/filter pipelines and any metadata-aware compressor configuration;
+- partial chunk updates (`read existing or fill`, decode, patch, encode,
+  `store_replace()`);
+- multi-key consistency policy for metadata/chunk writes.
+
+This separation is intentional. Ropendal is the portable async byte substrate;
+a Rarr-like package is the Zarr engine. Empty hierarchy/group markers that must
+exist without metadata objects may justify a future `store_mkdir()` convenience,
+but array reads/writes normally only require metadata and chunk keys.
+
+### Codec extension boundary
+
+The codec layer is intentionally explicit and byte-first. Current built-in
+native codecs are `identity`, `gzip`, and `zlib`; adding more raw-byte codecs
+fits the current architecture by extending the Rust codec registry, R
+`codec_config()`/`mode = "codec"` plumbing, C `ropendal_codec_encode()` /
+`ropendal_codec_decode()`, docs, and roundtrip tests. Store operations should
+remain byte-only and must not auto-select or interpret codecs.
+
+Zarr codecs that are pure bytes-to-bytes transforms can either live in the
+consumer package or be promoted into Ropendal when they are generally useful.
+Array-to-bytes and array-to-array filters that need dtype, shape, fill, or
+chunk metadata belong in the Zarr/Rarr-like consumer unless a separate typed
+array layer is deliberately introduced.
+
+ZIP-backed stores are not a free consequence of `byte_store()` alone. A read-only
+ZIP adapter can map archive entries into filesystem paths and then feed
+`byte_store()`:
 
 ```r
 store <- opendal("s3", bucket = "datasets", root = "arrays", auth = credentials_s3(...)) |>
@@ -557,6 +600,10 @@ store <- opendal("s3", bucket = "datasets", root = "arrays", auth = credentials_
 meta <- store_read(store, "zarr.json") # OpendalBytes; parse explicitly above store layer
 chunk <- store_read(store, "c/0/0")
 ```
+
+Writable ZIP stores need archive-level transaction/finalization semantics and
+are a separate adapter concern, not something the key-to-bytes store can provide
+by itself.
 
 Core Ropendal should not implement full Zarr array semantics. It should provide
 the filesystem/byte-store substrate; Zarr, Arrow, Bioconductor, or geospatial
