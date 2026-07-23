@@ -71,16 +71,21 @@ options(repos = c(
 install.packages("Ropendal")
 ```
 
+Unix source builds (Linux and macOS) include OpenDAL’s key-authenticated
+SFTP service by default. It uses the system OpenSSH client. Upstream
+OpenDAL supports that service on Unix only, so Ropendal deliberately
+does not enable it for Windows/Rtools or wasm/webR builds.
+
 Source builds can still use explicit OpenDAL feature flags when you need
 custom provider wiring.
 
 ``` r
-# Keep only local filesystem, HTTP, S3-compatible, and Google Drive support.
+# On Unix, keep only local filesystem and key-authenticated SFTP support.
 install.packages(
   "Ropendal",
   repos = c("https://sounkou-bioinfo.r-universe.dev", "https://cloud.r-project.org"),
   type = "source",
-  configure.args = "--without-default-rust-features --with-rust-features=fs,http,s3,gdrive"
+  configure.args = "--without-default-rust-features --with-rust-features=fs,sftp"
 )
 
 # Add the current cloud-service feature group explicitly.
@@ -218,7 +223,8 @@ rawToChar(read_iter_collect(reader))
 
 ## Tour of the API across backends
 
-The same `fs_*` calls apply to HTTP(S), S3, and Google Drive handles.
+The same `fs_*` calls apply to HTTP(S), S3, Google Drive, and Unix SFTP
+handles.
 
 ### HTTP/HTTPS read example
 
@@ -253,6 +259,33 @@ fs_stat(http_fs, "hello.txt")[c("path", "type", "size")]
 fixture$stop()
 #> [1] TRUE
 ```
+
+### SFTP example (Unix only)
+
+SFTP is an SSH file-transfer service, not SSHFS. Ropendal connects
+directly via OpenDAL and the system OpenSSH client; it does not make or
+manage an SSHFS mount. OpenDAL’s SFTP service requires key-based
+authentication and does not support password login. Keep host-key
+verification strict for real servers.
+
+``` r
+sftp_fs <- opendal(
+  "sftp",
+  endpoint = "ssh://sftp.example.test:22",
+  root = "/data/project",
+  user = "alice",
+  key = "/home/alice/.ssh/id_ed25519",
+  known_hosts_strategy = "strict"
+)
+
+rawToChar(fs_read(sftp_fs, "notes/hello.txt"))
+fs_replace(sftp_fs, "notes/hello.txt", charToRaw("updated over SFTP\n"))
+```
+
+`known_hosts_strategy = "accept"` or `"add"` has trust-on-first-use
+semantics; use one only when that policy is intentional, such as an
+ephemeral local test server. Windows/Rtools and wasm/webR builds reject
+the `sftp` feature because OpenDAL currently supports it on Unix only.
 
 ### S3-compatible store (local MinIO)
 
@@ -338,9 +371,9 @@ bench::mark(
 #> # A tibble: 3 × 5
 #>   expression                       min   median `itr/sec` mem_alloc
 #>   <bch:expr>                  <bch:tm> <bch:tm>     <dbl> <bch:byt>
-#> 1 ropendal_replace             126.7ms  130.4ms      7.61        0B
-#> 2 ropendal_replace_concurrent   81.8ms   83.5ms     12.0         0B
-#> 3 paws_put                     544.7ms  544.7ms      1.84    67.7MB
+#> 1 ropendal_replace               303ms    308ms      3.21        0B
+#> 2 ropendal_replace_concurrent    303ms    315ms      3.16        0B
+#> 3 paws_put                       693ms    693ms      1.44    67.7MB
 ```
 
 Then we compare download paths. The Ropendal rows separate default
@@ -370,11 +403,11 @@ bench::mark(
 #> # A tibble: 5 × 5
 #>   expression                        min   median `itr/sec` mem_alloc
 #>   <bch:expr>                   <bch:tm> <bch:tm>     <dbl> <bch:byt>
-#> 1 ropendal_read                  70.6ms   70.6ms      14.2      64MB
-#> 2 ropendal_read_concurrent       34.8ms   35.4ms      28.3      64MB
-#> 3 ropendal_read_aio              39.6ms   47.1ms      21.2      64MB
-#> 4 ropendal_read_aio_concurrent   31.6ms   31.6ms      31.7      64MB
-#> 5 paws_get                       55.4ms   56.7ms      17.1    64.3MB
+#> 1 ropendal_read                  62.2ms   62.2ms      16.1      64MB
+#> 2 ropendal_read_concurrent       36.5ms   36.6ms      27.3      64MB
+#> 3 ropendal_read_aio              41.7ms   48.6ms      20.6      64MB
+#> 4 ropendal_read_aio_concurrent   32.9ms   32.9ms      30.4      64MB
+#> 5 paws_get                       56.6ms   57.2ms      16.7    64.3MB
 ```
 
 ### Google Drive read example (credentials explicit)
@@ -692,10 +725,12 @@ while (status > 0L) {
 #> native request 1: running; wait write
 #> native request 2: running; wait write
 #> native request 3: running; wait write
-#> native request 4: running; wait stat
-#> native request 5: running; wait list
-#> native request 6: running; wait read_into
-#> native request 7: done; complete
+#> native request 4: running; wait write
+#> native request 5: running; wait write
+#> native request 6: running; wait stat
+#> native request 7: running; wait list
+#> native request 8: running; wait read_into
+#> native request 9: done; complete
 if (status < 0L) {
   message <- ffi$ropendal_demo_error(task)
   ffi$ropendal_demo_free(task)
@@ -710,7 +745,7 @@ c(
   bytes_read_into_c_buffer = nread
 )
 #>                  r_ticks                   r_work bytes_read_into_c_buffer 
-#>                        7                  3503500                       17
+#>                        9                  4504500                       17
 ```
 
 ## Development
@@ -722,12 +757,21 @@ make --no-print-directory help
 Common development targets:
   make rd              regenerate savvy wrappers, roxygen docs, and NAMESPACE
   make test-fast       install current source and run non-network tinytest
+  make test-rust       run Rust unit tests in src/rust
   make test-http       run opt-in local HTTP fixture tests
   make test-s3         run opt-in public read-only S3-compatible tests
   make test-s3-minio   start local MinIO and run writable S3-compatible tests
+  make test-sftp       start local key-authenticated SFTP and run Unix-only tests
   make test-gdrive     run opt-in Google Drive tests using local gdrive3 JSON defaults
   make test-ci         run C API checks and CI-only tinytest
   make rdm             render README.md from README.Rmd
   make bench-minio-paws render development MinIO benchmark
+  make bench-gdrive-minio-stress run Google Drive vs MinIO read stress benchmark
+  make test-webr       build webR/wasm package via rwasm Docker image
   make check           build and run R CMD check --as-cran --no-manual
 ```
+
+On Unix, `make test-sftp` starts a disposable key-authenticated SFTP
+server in Docker and runs the opt-in SFTP integration test. It requires
+Docker and the OpenSSH client (`ssh` and `ssh-keygen`); the fixture’s
+accepted host key is kept in a temporary `HOME` and removed afterwards.

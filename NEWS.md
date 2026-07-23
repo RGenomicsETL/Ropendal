@@ -3,6 +3,10 @@
 ## Ropendal 0.0.1.9000
 
 - Development version after 0.0.1.
+- SFTP: added Unix-only, key-authenticated OpenDAL SFTP support with strict
+  host-key verification by default, a disposable local Docker integration test,
+  and README/configuration guidance. Windows/Rtools and wasm/webR builds reject
+  the unsupported SFTP feature explicitly.
 - Documentation: expanded README examples for batched I/O, async Aio handles,
   serializers/codecs, Arrow IPC streams via nanoarrow, lower-level iterators,
   S3-compatible MinIO benchmarking, and native C API scheduling.

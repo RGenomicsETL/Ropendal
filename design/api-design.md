@@ -764,6 +764,30 @@ OpenDAL requires either:
 - `access_token`, or
 - `refresh_token` + `client_id` + `client_secret`
 
+### SFTP (Unix only)
+
+OpenDAL 0.57 provides `sftp` through its Unix-only OpenSSH-based service.
+Ropendal enables it for ordinary Unix source builds and rejects it for
+Windows/Rtools and wasm/webR builds rather than allowing a platform-dependent
+installation failure. It is a direct SFTP connection, not an SSHFS mount.
+
+```r
+fs <- opendal(
+  "sftp",
+  endpoint = "ssh://sftp.example.test:22",
+  root = "/data/project",
+  user = "alice",
+  key = "/home/alice/.ssh/id_ed25519",
+  known_hosts_strategy = "strict"
+)
+```
+
+The service requires a system OpenSSH client and key-based authentication;
+OpenDAL does not support SFTP password login. `known_hosts_strategy` is
+`"strict"` by default; `"accept"` and `"add"` are explicit trust-on-first-use
+policies for controlled cases such as disposable local fixtures. A user-managed
+SSHFS mount remains a local `opendal("fs", root = mount_path)` handle.
+
 Potential explicit helper for users of gargle without a hard dependency:
 
 ```r
@@ -1022,7 +1046,7 @@ This is the important path for high-performance consumers: indexed file readers,
 
 ## Package build features
 
-OpenDAL feature set should include Google Drive in addition to the object-store/file/http defaults:
+OpenDAL feature set includes Google Drive in addition to the object-store/file/http defaults. SFTP is kept as a separate feature because upstream supports it on Unix only; Unix `configure` enables it for normal builds, while Windows/Rtools and wasm/webR reject it.
 
 ```toml
 opendal = { version = "0.57", default-features = false, features = [
@@ -1039,6 +1063,11 @@ opendal = { version = "0.57", default-features = false, features = [
   "layers-timeout",
   "layers-concurrent-limit"
 ] }
+```
+
+```toml
+[features]
+sftp = ["opendal/services-sftp"]
 ```
 
 Call `opendal::init_default_registry()` explicitly during package initialization or before construction because static-linked bindings cannot rely on service registry constructors.

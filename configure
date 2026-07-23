@@ -80,6 +80,9 @@ for arg in "$@"; do
     --enable-gdrive)
       append_feature "gdrive"
       ;;
+    --enable-sftp)
+      append_feature "sftp"
+      ;;
     --enable-cloud)
       append_feature "cloud"
       ;;
@@ -93,6 +96,7 @@ for arg in "$@"; do
       echo "  --enable-gcs                    enable Google Cloud Storage service"
       echo "  --enable-azblob                 enable Azure Blob service"
       echo "  --enable-gdrive                 enable Google Drive service"
+      echo "  --enable-sftp                   enable SFTP service (Unix only)"
       echo "  --enable-cloud                  enable S3, GCS, Azure Blob, and Google Drive"
       exit 0
       ;;
@@ -113,7 +117,18 @@ if [ "${WASM_TARGET}" = "true" ] && [ -z "${SAVVY_FEATURES}" ] && [ -z "${CONFIG
   append_feature "fs"
 fi
 
+# OpenDAL's SFTP service uses the system OpenSSH client and upstream supports
+# it on Unix only. It is part of normal Unix source builds, but remains an
+# explicit feature for minimal (--without-default-rust-features) builds.
+if [ "${WASM_TARGET}" != "true" ] && [ -z "${NO_DEFAULT_FEATURES}" ]; then
+  append_feature "sftp"
+fi
+
 FEATURES="$(printf '%s %s' "${SAVVY_FEATURES}" "${CONFIGURE_FEATURES}" | xargs)"
+if [ "${WASM_TARGET}" = "true" ] && printf '%s\n' "${FEATURES}" | tr ',' ' ' | grep -Eq '(^|[[:space:]])sftp($|[[:space:]])'; then
+  echo "SFTP is supported only on Unix native builds; it cannot be enabled for wasm/webR" >&2
+  exit 1
+fi
 if [ -n "${FEATURES}" ]; then
   FEATURE_FLAGS="${NO_DEFAULT_FEATURES} --features '${FEATURES}'"
 elif [ -n "${NO_DEFAULT_FEATURES}" ]; then

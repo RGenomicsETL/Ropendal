@@ -1,8 +1,8 @@
 #' Ropendal filesystem API
 #'
 #' Byte-oriented filesystem operations backed by Apache OpenDAL. The current
-#' implementation includes local `fs`, HTTP, S3-compatible, and Google Drive
-#' handles; raw byte operations; metadata and listing where supported; error
+#' implementation includes local `fs`, HTTP, S3-compatible, Google Drive, and
+#' Unix-only SFTP handles; raw byte operations; metadata and listing where supported; error
 #' values; Aio handles for read, write, metadata, and namespace operations; and
 #' a pure C API.
 #'
@@ -56,7 +56,13 @@
 #' @param account_name Azure Blob Storage account name.
 #' @param account_key Azure Blob Storage account key.
 #' @param sas_token Azure Blob Storage SAS token.
-#' @param endpoint Optional Azure Blob Storage endpoint.
+#' @param endpoint Service endpoint. For SFTP, use an OpenSSH-style host such
+#'   as `ssh://sftp.example.test:22` or `alice@sftp.example.test`.
+#' @param user SFTP login user.
+#' @param key Path to the SFTP private key used for key-based authentication.
+#' @param known_hosts_strategy SFTP host-key policy: `"strict"` (the default),
+#'   `"accept"`, or `"add"`. Use `"strict"` for real servers; the other modes
+#'   are appropriate only when their trust-on-first-use behavior is deliberate.
 #' @param access_token Google Drive access token, mutually exclusive with
 #'   `refresh_token`.
 #' @param refresh_token Google Drive refresh token.
@@ -293,6 +299,17 @@
 #' `as.raw()` on an `OpendalBytes` handle returns a raw ALTREP facade: element
 #' and region access copy only requested bytes, while pointer access materializes
 #' an R-owned raw vector.
+#'
+#' SFTP is enabled by default for Unix source builds and is unavailable on
+#' Windows/Rtools and wasm/webR because OpenDAL's SFTP service is Unix-only.
+#' It uses the system OpenSSH client and supports key-based authentication, not
+#' password login. Configure `endpoint`, `root`, `user`, `key`, and an explicit
+#' `known_hosts_strategy` through `opendal("sftp", ...)`; use `"strict"` host
+#' verification for ordinary use.
+#'
+#' SSHFS is separate: a mounted SSHFS directory is used through the local
+#' `opendal("fs", root = ...)` service, while `opendal("sftp", ...)` opens an
+#' SFTP connection directly.
 #' @return Filesystem handles, raw vectors, `OpendalBytes` handles,
 #'   deserialized R objects, metadata lists, logical results, Aio handles, or
 #'   classed error values depending on the operation and mode.

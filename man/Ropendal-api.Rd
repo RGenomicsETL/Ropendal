@@ -277,7 +277,16 @@ uses OpenDAL's timeout-layer default.}
 
 \item{sas_token}{Azure Blob Storage SAS token.}
 
-\item{endpoint}{Optional Azure Blob Storage endpoint.}
+\item{endpoint}{Service endpoint. For SFTP, use an OpenSSH-style host such
+as \verb{ssh://sftp.example.test:22} or \code{alice@sftp.example.test}.}
+
+\item{user}{SFTP login user.}
+
+\item{key}{Path to the SFTP private key used for key-based authentication.}
+
+\item{known_hosts_strategy}{SFTP host-key policy: \code{"strict"} (the default),
+\code{"accept"}, or \code{"add"}. Use \code{"strict"} for real servers; the other modes
+are appropriate only when their trust-on-first-use behavior is deliberate.}
 
 \item{access_token}{Google Drive access token, mutually exclusive with
 \code{refresh_token}.}
@@ -414,8 +423,8 @@ classed error values depending on the operation and mode.
 }
 \description{
 Byte-oriented filesystem operations backed by Apache OpenDAL. The current
-implementation includes local \code{fs}, HTTP, S3-compatible, and Google Drive
-handles; raw byte operations; metadata and listing where supported; error
+implementation includes local \code{fs}, HTTP, S3-compatible, Google Drive, and
+Unix-only SFTP handles; raw byte operations; metadata and listing where supported; error
 values; Aio handles for read, write, metadata, and namespace operations; and
 a pure C API.
 }
@@ -445,4 +454,15 @@ vector. \code{offset} is zero-based and \code{end} is exclusive, matching read r
 \code{as.raw()} on an \code{OpendalBytes} handle returns a raw ALTREP facade: element
 and region access copy only requested bytes, while pointer access materializes
 an R-owned raw vector.
+
+SFTP is enabled by default for Unix source builds and is unavailable on
+Windows/Rtools and wasm/webR because OpenDAL's SFTP service is Unix-only.
+It uses the system OpenSSH client and supports key-based authentication, not
+password login. Configure \code{endpoint}, \code{root}, \code{user}, \code{key}, and an explicit
+\code{known_hosts_strategy} through \code{opendal("sftp", ...)}; use \code{"strict"} host
+verification for ordinary use.
+
+SSHFS is separate: a mounted SSHFS directory is used through the local
+\code{opendal("fs", root = ...)} service, while \code{opendal("sftp", ...)} opens an
+SFTP connection directly.
 }

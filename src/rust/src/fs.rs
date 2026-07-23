@@ -817,7 +817,7 @@ impl OpendalFs {
         let mut values: Vec<Option<DeleteValue>> = (0..n).map(|_| None).collect();
         let mut requests = Vec::new();
         for (i, p) in path.iter().enumerate() {
-            match normalize_user_path(p, false) {
+            match normalize_delete_path(p, recursive) {
                 Ok(p) => requests.push((i, p)),
                 Err(e) => {
                     values[i] = Some(DeleteValue::Error {
@@ -874,7 +874,7 @@ impl OpendalFs {
         let mut values: Vec<Option<AioOutcome>> = (0..n).map(|_| None).collect();
         let mut requests = Vec::new();
         for (i, p) in path.iter().enumerate() {
-            match normalize_user_path(p, false) {
+            match normalize_delete_path(p, recursive) {
                 Ok(p) => requests.push((i, p)),
                 Err(e) => values[i] = Some(invalid_argument_outcome("delete", p, e)),
             }
@@ -1155,7 +1155,7 @@ impl OpendalFs {
     }
 
     fn delete_one(&self, path: &str, recursive: bool) -> savvy::Result<savvy::Sexp> {
-        let path = match normalize_user_path(path, false) {
+        let path = match normalize_delete_path(path, recursive) {
             Ok(p) => p,
             Err(e) => return crate::error::error_list("InvalidArgument", 14, &e, "delete", path),
         };
@@ -2501,6 +2501,14 @@ mod tests {
         };
         assert!(many_paths_nested_ranges.auto_nested());
     }
+}
+
+/// Preserve a directory marker for backends such as SFTP that distinguish
+/// file removal from empty-directory removal. `recursive = TRUE` necessarily
+/// targets a directory; callers can also make a non-recursive directory target
+/// explicit with a trailing slash.
+fn normalize_delete_path(path: &str, recursive: bool) -> Result<String, String> {
+    normalize_user_path(path, recursive || path.trim_end().ends_with('/'))
 }
 
 fn append_named_config(

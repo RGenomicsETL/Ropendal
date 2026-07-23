@@ -32,6 +32,7 @@ help:
 	  '  make test-http       run opt-in local HTTP fixture tests' \
 	  '  make test-s3         run opt-in public read-only S3-compatible tests' \
 	  '  make test-s3-minio   start local MinIO and run writable S3-compatible tests' \
+	  '  make test-sftp       start local key-authenticated SFTP and run Unix-only tests' \
 	  '  make test-gdrive     run opt-in Google Drive tests using local gdrive3 JSON defaults' \
 	  '  make test-ci         run C API checks and CI-only tinytest' \
 	  '  make rdm             render README.md from README.Rmd' \
@@ -83,7 +84,11 @@ test-fast: dev-install
 	ROPENDAL_TEST_NETWORK=false R -e "tinytest::test_package('$(PKGNAME)', testdir = 'inst/tinytest')"
 
 test-rust:
-	cargo test --manifest-path=src/rust/Cargo.toml
+	@if [ "$$(uname -s)" = Linux ] || [ "$$(uname -s)" = Darwin ]; then \
+	  cargo test --manifest-path=src/rust/Cargo.toml --features sftp; \
+	else \
+	  cargo test --manifest-path=src/rust/Cargo.toml; \
+	fi
 
 test-local: test-fast
 
@@ -108,6 +113,9 @@ test-s3-minio: dev-install
 	ROPENDAL_S3_MINIO_BUCKET="$(ROPENDAL_S3_MINIO_BUCKET)" \
 	ROPENDAL_S3_MINIO_REGION="$(ROPENDAL_S3_MINIO_REGION)" \
 	tools/run-minio-test.sh
+
+test-sftp: dev-install
+	tools/run-sftp-test.sh
 
 test-c-api-header:
 	Rscript tools/check-c-api-header.R inst/include/ropendal.h
@@ -157,4 +165,4 @@ test-webr:
 site:
 	R -e "pkgdown::build_site()"
 
-.PHONY: all help rd build check install_deps install install2 install3 clean dev-install test1 test2 test0 test-fast test-rust test-local test-network test-http test-s3 test-s3-minio test-c-api-header test-c-api-roundtrip test-ci ci test-gdrive test rdm bench-minio-paws bench-gdrive-minio-stress test-webr site
+.PHONY: all help rd build check install_deps install install2 install3 clean dev-install test1 test2 test0 test-fast test-rust test-local test-network test-http test-s3 test-s3-minio test-sftp test-c-api-header test-c-api-roundtrip test-ci ci test-gdrive test rdm bench-minio-paws bench-gdrive-minio-stress test-webr site

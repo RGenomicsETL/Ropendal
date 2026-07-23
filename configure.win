@@ -57,6 +57,10 @@ for arg in "$@"; do
     --enable-gdrive)
       append_feature "gdrive"
       ;;
+    --enable-sftp)
+      echo "SFTP is supported only on Unix native builds and cannot be enabled with Rtools" >&2
+      exit 1
+      ;;
     --enable-cloud)
       append_feature "cloud"
       ;;
@@ -70,6 +74,7 @@ for arg in "$@"; do
       echo "  --enable-gcs                    enable Google Cloud Storage service"
       echo "  --enable-azblob                 enable Azure Blob service"
       echo "  --enable-gdrive                 enable Google Drive service"
+      echo "  --enable-sftp                   unsupported on Rtools/Windows"
       echo "  --enable-cloud                  enable S3, GCS, Azure Blob, and Google Drive"
       exit 0
       ;;
@@ -85,6 +90,10 @@ else
 fi
 
 FEATURES="$(printf '%s %s' "${SAVVY_FEATURES}" "${CONFIGURE_FEATURES}" | xargs)"
+if printf '%s\n' "${FEATURES}" | tr ',' ' ' | grep -Eq '(^|[[:space:]])sftp($|[[:space:]])'; then
+  echo "SFTP is supported only on Unix native builds and cannot be enabled with Rtools" >&2
+  exit 1
+fi
 if [ -n "${FEATURES}" ]; then
   FEATURE_FLAGS="${NO_DEFAULT_FEATURES} --features '${FEATURES}'"
 elif [ -n "${NO_DEFAULT_FEATURES}" ]; then

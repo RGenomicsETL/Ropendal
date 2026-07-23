@@ -34,6 +34,9 @@ s3 = ["opendal/services-s3"]
 gcs = ["opendal/services-gcs"]
 azblob = ["opendal/services-azblob"]
 gdrive = ["opendal/services-gdrive"]
+# `configure` enables this feature for Unix source builds only. OpenDAL's
+# SFTP service is not supported on Windows or wasm targets.
+sftp = ["opendal/services-sftp"]
 cloud = ["s3", "gcs", "azblob", "gdrive"]
 
 [profile.release]

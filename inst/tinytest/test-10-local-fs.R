@@ -489,6 +489,10 @@ single_thread_prefetch <- ls_iter_collect(fs_ls_iter(single_thread_fs, page_size
 expect_equal(sort(vapply(single_thread_prefetch, `[[`, "", "path")), c("one.txt", "two.txt"))
 
 expect_true(identical(fs_delete(fs, "dir/c.bin"), TRUE))
+# Recursive deletion denotes a directory target and therefore preserves the
+# directory marker required by protocol backends such as SFTP.
+expect_true(identical(fs_delete(fs, "dir", recursive = TRUE), TRUE))
+expect_false(fs_exists(fs, "dir"))
 
 expect_error(fs_read(fs, c("a.bin", "a.bin"), offset = 0))
 expect_error(fs_read(fs, "a.bin", batch_concurrency = 0), "batch_concurrency")

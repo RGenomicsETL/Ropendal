@@ -261,6 +261,26 @@ Status: `open`
 
 Need design the internal registry that maps a service/config to a declared Ropendal capability profile. This is where service-specific Rust/C adapters live, including Google Drive ergonomics.
 
+### Unix-only SFTP service profile
+
+Status: `implemented`
+
+OpenDAL 0.57's `sftp` service is an OpenSSH-based, Unix-only direct SFTP
+backend, not an SSHFS adapter. Ropendal's Unix `configure` enables its `sftp`
+Cargo feature for normal source builds; Windows/Rtools and wasm/webR configure
+paths reject that feature explicitly so package installation remains portable.
+
+The exposed OpenDAL configuration is `endpoint`, optional `root`, `user`,
+private-key `key`, and `known_hosts_strategy`. Password login is deliberately
+not offered upstream. Production callers should retain the default
+`known_hosts_strategy = "strict"`; `accept`/`add` are explicit
+trust-on-first-use policies used only where appropriate, such as the disposable
+Docker fixture behind `make test-sftp`. The fixture generates an ephemeral key
+and isolates its known-hosts state in a temporary `HOME`.
+
+A user-managed SSHFS mount remains an `fs` service rooted at the mount point.
+No SSHFS lifecycle, mount, or credential API is added to Ropendal.
+
 ### Auth refresh and secret lifetime
 
 Status: `provisional`

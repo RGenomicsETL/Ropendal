@@ -10,7 +10,7 @@ Status labels:
 
 ## Current state summary
 
-Ropendal currently has a working implementation through the Apache OpenDAL Rust crate and savvy. Rust code is split into modules, the public R layer is thin and delegates operation logic to generated Rust-backed methods, error values are classed in Rust, local byte operations plus read/write/listing/walking iterators, `OpendalBytes` byte handles/slices, and a raw ALTREP facade for `as.raw.OpendalBytes()` are tested, text-mode materialization uses explicit complete-object encoding boundaries, native gzip/zlib byte codecs are wired as explicit raw-byte transforms for R and C consumers, pure-R chunked-array and indexed range-reader examples are covered by default tests/vignettes, public S3-compatible, HTTP, and Google Drive opt-in service tests pass, HTTP(S) filesystems support explicit request headers, and the pure C API has compiled roundtrip coverage for byte stores, full-object and fixed-size block caches, byte/range reads, read-vector, codec, metadata/existence, listing, and namespace operations against the installed native library. The package has a public `0.0.1` release, a development version `0.0.1.9000`, public GitHub/pkgdown metadata, and an R-universe declaration.
+Ropendal currently has a working implementation through the Apache OpenDAL Rust crate and savvy. Rust code is split into modules, the public R layer is thin and delegates operation logic to generated Rust-backed methods, error values are classed in Rust, local byte operations plus read/write/listing/walking iterators, `OpendalBytes` byte handles/slices, and a raw ALTREP facade for `as.raw.OpendalBytes()` are tested, text-mode materialization uses explicit complete-object encoding boundaries, native gzip/zlib byte codecs are wired as explicit raw-byte transforms for R and C consumers, pure-R chunked-array and indexed range-reader examples are covered by default tests/vignettes, public S3-compatible, HTTP, Google Drive, and Unix-only key-authenticated SFTP opt-in service tests pass, HTTP(S) filesystems support explicit request headers, and the pure C API has compiled roundtrip coverage for byte stores, full-object and fixed-size block caches, byte/range reads, read-vector, codec, metadata/existence, listing, and namespace operations against the installed native library. The package has a public `0.0.1` release, a development version `0.0.1.9000`, public GitHub/pkgdown metadata, and an R-universe declaration.
 
 ## CI matrix
 
@@ -23,11 +23,12 @@ Ropendal currently has a working implementation through the Apache OpenDAL Rust 
 | Installed C API roundtrip | `make test-c-api-roundtrip` | no | yes | implemented/tested-ci; covers timeout polling and unsupported write-header rejection |
 | Installed C API contract lint | `make test-ci` | no | yes | implemented/tested-ci |
 | R CMD check | `R CMD check --no-manual` | yes | yes | implemented in workflow on Ubuntu, Windows, and macOS |
-| Network/service tests | `make test-network` | no | opt-in | implemented for S3/HTTP/GDrive; broader services planned |
+| Network/service tests | `make test-network` | no | opt-in | implemented for S3/HTTP/GDrive/Unix SFTP; broader services planned |
 | Local HTTP fixture tests | `make test-http` | no | opt-in | implemented with internal Rust fixture, including required-header authentication coverage |
 | Public S3-compatible tests | `make test-s3` | no | opt-in network | implemented with EMBL-EBI IDR public object store |
 | Local MinIO S3-compatible tests | `make test-s3-minio` | no | CI/local service | implemented; starts MinIO with `minio`/`mc`; wired into GitHub Actions |
 | Google Drive tests | `make test-gdrive` | no | opt-in with secrets | implemented with explicit env paths |
+| Local SFTP tests | `make test-sftp` | no | Unix CI/local Docker | implemented; runs against an ephemeral key-authenticated `atmoz/sftp` container |
 | pkgdown site | `make site` / pkgdown workflow | no | yes | implemented; GitHub Pages configured for the public repo |
 | webR/wasm package build | `make test-webr` | no | yes | wasm build shim implemented for package load; OpenDAL-backed operations currently return explicit unsupported errors in webR |
 
@@ -36,6 +37,7 @@ GitHub Actions jobs:
 - `R API tinytest (non-network)` on Ubuntu, Windows, and macOS
 - `C API contract and CI-only tests` on Ubuntu, including Rust unit tests
 - `Local MinIO S3-compatible tests` on Ubuntu
+- `Local SFTP tests (Unix only)` on Ubuntu
 - `R CMD check (no CI-only/network tests)` on Ubuntu, Windows, and macOS
 - `pkgdown` site build/deploy
 - `webR wasm build` for rwasm package-build smoke coverage
@@ -47,10 +49,10 @@ GitHub Actions jobs:
 | `tests/tinytest.R` entrypoint | yes | yes | yes | runs installed package tests |
 | `inst/tinytest/helper-ropendal.R` | yes | yes | yes | env gates, temp helpers |
 | CI-only gating via `ROPENDAL_TEST_CI` | yes | yes | yes | default tests skip CI-only files |
-| Network/service gating | yes | no | partial | public S3, local MinIO, HTTP fixture, and Google Drive tests exist; other cloud service tests planned |
+| Network/service gating | yes | no | partial | public S3, local MinIO, HTTP fixture, Google Drive, and Unix-only local SFTP tests exist; other cloud service tests planned |
 | Makefile test targets | yes | yes | yes | includes R tests, Rust unit tests, C API tests, and development benchmark rendering |
 | Development MinIO/GDrive benchmarks | yes | n/a | n/a | `benchmarks/minio-paws.Rmd` rendered to GitHub Markdown; `benchmarks/gdrive-minio-read-stress.R` / `make bench-gdrive-minio-stress` read-stresses a large Google Drive object against local MinIO; ignored from package build |
-| GitHub Actions workflow | yes | no local | defined | R API tinytest and R CMD check run on Ubuntu/Windows/macOS; C API and MinIO jobs run on Ubuntu; pkgdown deploy workflow exists |
+| GitHub Actions workflow | yes | no local | defined | R API tinytest and R CMD check run on Ubuntu/Windows/macOS; C API, MinIO, and Unix-only SFTP jobs run on Ubuntu; pkgdown deploy workflow exists |
 | savvy/roxygen generated wrappers and namespace | yes | yes | yes | `R/000-wrappers.R`, `src/init.c`, `src/rust/api.h`, `NAMESPACE` via `make rd` |
 | Rust modules | yes | yes | yes | `aio`, `common`, `error`, `fs`, `http_fixture`, `http_headers`, `io_iter`, `metadata`, `ops`, `path`, `r_values`, `c_api/*` |
 | configure / Makevars templates | yes | yes | yes | package tarball installs from generated `src/Makevars`; source builds support Cargo feature selection via `SAVVY_FEATURES` and `--with-rust-features`; wasm builds compile a loadable C shim instead of Rust/OpenDAL |
@@ -61,8 +63,8 @@ GitHub Actions jobs:
 | Contract | Documented | Implemented | Tested default | Tested CI | Notes |
 |---|---:|---:|---:|---:|---|
 | Rust-backed filesystem handle `OpendalFs` | yes | yes | yes | yes | local `fs`; no ad hoc `opendalFs` / `abstractFs` mutation |
-| `opendal()` / `opendal_uri()` constructors | yes | yes | yes | partial | `opendal("fs", root=)`, local `opendal_uri("fs://...")`, and public S3 config tested; HTTP(S) `headers=` supported for explicit request headers |
-| declarative `fs_capabilities()` | yes | yes | partial | partial | classed Rust-built capability values; local `fs` shape/read/list support tested by default; HTTP fixture and S3 public/MinIO service profile checks added |
+| `opendal()` / `opendal_uri()` constructors | yes | yes | yes | partial | `opendal("fs", root=)`, local `opendal_uri("fs://...")`, public S3 config, and Unix SFTP config tested; HTTP(S) `headers=` supported for explicit request headers |
+| declarative `fs_capabilities()` | yes | yes | partial | partial | classed Rust-built capability values; local `fs` shape/read/list support tested by default; HTTP fixture, S3 public/MinIO, and Unix SFTP service profile checks added |
 | path normalization relative to root | yes | yes | yes | yes | escape above root errors |
 | errors as values / `opendalErrorValue` | yes | yes | yes | yes | Rust assigns S3 classes; NotFound and AlreadyExists tested |
 | vectorized `fs_read()` shape | yes | yes | yes | partial | scalar reads, many ranges for one path, list-of-ranges per path, `byte_ranges()` request objects, strict mismatch, result shaping, and read transfer tuning tested |
@@ -77,9 +79,9 @@ GitHub Actions jobs:
 | `store_cache()` / `store_block_cache()` explicit local byte-store caches | yes | yes | yes | no | full-object cache for complete store-key reads and fixed-size block cache for scalar `result = "auto"` complete/range store reads using a local OpenDAL `fs` cache store; tests cover validation, stale-cache mode, size-mismatch refresh and whole-key size-cycle/partial-miss invalidation for `validate = "none"`, byte handles, vectorized full-object and async/raw block reads, whole-request corrupted block-payload repair, bypassed shapes, invalidation, async mutation wrappers, clear, and pure-R chunked-array cache refresh |
 | `fs_write_iter()` chunked writes | yes | yes | yes | no | one path returns a tellable sink; many paths return a list; seek intentionally unsupported; local test |
 | `fs_ls_iter()` / `fs_walk_iter()` streaming namespace traversal | yes | yes | yes | no | Rust-backed `OpendalLsIter` with `page_size`, `limit`, `start_after`, best-effort page `cursor`, explicit `prefetch` buffering, `*_next()`, and `*_collect()`; empty listing, paged/limited/prefetched root listing, continuation filtering, cursor markers, and recursive local walk tested |
-| `fs_stat()` / `fs_stats()` / `fs_exists()` and `_aio()` | yes | yes | yes | partial | metadata/existence sync plus async local, HTTP fixture, public S3, and MinIO tests; `fs_stats*` aliases vectorized `fs_stat*` |
-| `fs_ls()` / `fs_ls_aio()` | yes | yes | yes | partial | root entry filtered for local `fs`; `limit`/`start_after` wired through OpenDAL list options and client filtering; sync and async listing tested for local, public S3, and MinIO; HTTP unsupported value tested sync and async |
-| `fs_mkdir()` / `fs_delete()` / `fs_copy()` / `fs_rename()` and `_aio()` | yes | yes | yes | partial | direct sync methods tested; async local namespace tests; MinIO covers S3 copy/delete and unsupported/supported atomic rename outcomes sync and async |
+| `fs_stat()` / `fs_stats()` / `fs_exists()` and `_aio()` | yes | yes | yes | partial | metadata/existence sync plus async local, HTTP fixture, public S3, MinIO, and Unix SFTP tests; `fs_stats*` aliases vectorized `fs_stat*` |
+| `fs_ls()` / `fs_ls_aio()` | yes | yes | yes | partial | root entry filtered for local `fs`; `limit`/`start_after` wired through OpenDAL list options and client filtering; sync listing tested for local, public S3, MinIO, and Unix SFTP; HTTP unsupported value tested sync and async |
+| `fs_mkdir()` / `fs_delete()` / `fs_copy()` / `fs_rename()` and `_aio()` | yes | yes | yes | partial | direct sync methods tested; async local namespace tests; MinIO covers S3 copy/delete and unsupported/supported atomic rename outcomes; Unix SFTP covers mkdir/delete/copy/rename synchronously and copy/rename/delete asynchronously |
 | `serial_config(class, sfunc, ufunc)` / `serialize_raw()` / `deserialize_raw()` / `mode = "serial"` | yes | yes | yes | no | base serialization, custom class envelopes, `opt(fs, "serial")`, sync/Aio read/write materialization, vectorized serial writes, reset via `list()`, and partial-range rejection tested locally |
 | `mode = "text"` / `encoding =` explicit text layer | yes | yes | yes | no | sync/Aio read/write materialization, vectorized text writes, UTF-8 and Latin-1 boundaries, NUL-producing encoding rejection, text+codec composition, and partial-range rejection tested locally |
 | `codec_config()` / `codec =` explicit native byte-codec layer | yes | partial | yes | yes | `identity`, `gzip`, and `zlib` native transforms; sync/Aio raw and serial/text+codec local roundtrips; C API byte-handle encode/decode roundtrip |
@@ -144,7 +146,7 @@ store adapter to reveal abstraction gaps before freezing the substrate.
 7. Finalize the S7 credential-provider contract, and decide whether to add an `s7contract` interface/trait layer for third-party providers.
 8. Expand capability tests for additional service profiles and consider higher-level capability interfaces for consumers.
 9. Add more service coverage for explicit cloud credential helpers and any provider-specific readers that remain opt-in and non-ambient.
-10. Add richer service-level async tests for additional providers beyond current HTTP/S3/MinIO coverage.
+10. Add richer service-level async tests for additional providers beyond current HTTP/S3/MinIO/SFTP coverage.
 
 ## Deferred milestones
 

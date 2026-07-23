@@ -76,16 +76,21 @@ options(repos = c(
 install.packages("Ropendal")
 ```
 
+Unix source builds (Linux and macOS) include OpenDAL's key-authenticated SFTP
+service by default. It uses the system OpenSSH client. Upstream OpenDAL supports
+that service on Unix only, so Ropendal deliberately does not enable it for
+Windows/Rtools or wasm/webR builds.
+
 Source builds can still use explicit OpenDAL feature flags when you need custom
 provider wiring.
 
 ```{r install-source-features, eval = FALSE}
-# Keep only local filesystem, HTTP, S3-compatible, and Google Drive support.
+# On Unix, keep only local filesystem and key-authenticated SFTP support.
 install.packages(
   "Ropendal",
   repos = c("https://sounkou-bioinfo.r-universe.dev", "https://cloud.r-project.org"),
   type = "source",
-  configure.args = "--without-default-rust-features --with-rust-features=fs,http,s3,gdrive"
+  configure.args = "--without-default-rust-features --with-rust-features=fs,sftp"
 )
 
 # Add the current cloud-service feature group explicitly.
@@ -191,7 +196,8 @@ rawToChar(read_iter_collect(reader))
 
 ## Tour of the API across backends
 
-The same `fs_*` calls apply to HTTP(S), S3, and Google Drive handles.
+The same `fs_*` calls apply to HTTP(S), S3, Google Drive, and Unix SFTP
+handles.
 
 ### HTTP/HTTPS read example
 
@@ -216,6 +222,32 @@ fs_stat(http_fs, "hello.txt")[c("path", "type", "size")]
 
 fixture$stop()
 ```
+
+### SFTP example (Unix only)
+
+SFTP is an SSH file-transfer service, not SSHFS. Ropendal connects directly via
+OpenDAL and the system OpenSSH client; it does not make or manage an SSHFS
+mount. OpenDAL's SFTP service requires key-based authentication and does not
+support password login. Keep host-key verification strict for real servers.
+
+```{r api-tour-sftp, eval = FALSE}
+sftp_fs <- opendal(
+  "sftp",
+  endpoint = "ssh://sftp.example.test:22",
+  root = "/data/project",
+  user = "alice",
+  key = "/home/alice/.ssh/id_ed25519",
+  known_hosts_strategy = "strict"
+)
+
+rawToChar(fs_read(sftp_fs, "notes/hello.txt"))
+fs_replace(sftp_fs, "notes/hello.txt", charToRaw("updated over SFTP\n"))
+```
+
+`known_hosts_strategy = "accept"` or `"add"` has trust-on-first-use semantics;
+use one only when that policy is intentional, such as an ephemeral local test
+server. Windows/Rtools and wasm/webR builds reject the `sftp` feature because
+OpenDAL currently supports it on Unix only.
 
 ```{r readme-minio-helper, include = FALSE}
 readme_run_s3 <- requireNamespace("processx", quietly = TRUE) &&
@@ -776,3 +808,8 @@ Common targets:
 ```{bash make-help, comment = ""}
 make --no-print-directory help
 ```
+
+On Unix, `make test-sftp` starts a disposable key-authenticated SFTP server in
+Docker and runs the opt-in SFTP integration test. It requires Docker and the
+OpenSSH client (`ssh` and `ssh-keygen`); the fixture's accepted host key is kept
+in a temporary `HOME` and removed afterwards.

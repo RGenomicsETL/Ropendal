@@ -23,3 +23,22 @@ pub(crate) fn build_runtime(threads: Option<usize>) -> savvy::Result<Arc<tokio::
 pub(crate) fn init_registry() {
     opendal::init_default_registry();
 }
+
+#[cfg(all(test, feature = "sftp"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sftp_service_is_registered_without_connecting() {
+        init_registry();
+        let op = Operator::via_iter(
+            "sftp",
+            vec![(
+                "endpoint".to_string(),
+                "ssh://sftp.example.test:22".to_string(),
+            )],
+        )
+        .expect("the enabled SFTP service must be registered");
+        assert_eq!(op.info().scheme(), "sftp");
+    }
+}
