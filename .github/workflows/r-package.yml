@@ -74,7 +74,7 @@ jobs:
         run: make test-s3-minio
 
   sftp:
-    name: Local SFTP tests (Unix only)
+    name: Local SFTP tests (key and password)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -85,7 +85,7 @@ jobs:
         with:
           extra-packages: any::tinytest
           needs: check
-      - name: Key-authenticated SFTP tests against a local container
+      - name: Key- and password-authenticated SFTP tests against a local container
         run: make test-sftp
 
   r-cmd-check:

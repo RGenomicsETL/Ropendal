@@ -18,25 +18,30 @@ opendal = { version = "0.57", default-features = false, features = [
     "layers-timeout",
     "layers-concurrent-limit",
 ] }
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
+tokio = { version = "1", features = ["io-util", "rt-multi-thread", "sync", "time"] }
 futures = "0.3"
 bytes = "1"
 http = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+russh = { version = "0.62", optional = true }
+russh-sftp = { version = "2.3", optional = true }
 
 [features]
-default = ["fs", "http", "s3", "gcs", "azblob", "gdrive"]
+default = ["fs", "http", "s3", "gcs", "azblob", "gdrive", "sftp-password"]
 fs = ["opendal/services-fs"]
 http = ["opendal/services-http"]
 s3 = ["opendal/services-s3"]
 gcs = ["opendal/services-gcs"]
 azblob = ["opendal/services-azblob"]
 gdrive = ["opendal/services-gdrive"]
-# `configure` enables this feature for Unix source builds only. OpenDAL's
-# SFTP service is not supported on Windows or wasm targets.
+# OpenDAL's SFTP service is key/agent-only and Unix-only; `configure` enables
+# it for normal Unix source builds.
 sftp = ["opendal/services-sftp"]
+# Ropendal's password-capable SFTP adapter is pure Rust and works on native
+# targets. It is intentionally separate from OpenDAL's key-only SFTP service.
+sftp-password = ["dep:russh", "dep:russh-sftp"]
 cloud = ["s3", "gcs", "azblob", "gdrive"]
 
 [profile.release]

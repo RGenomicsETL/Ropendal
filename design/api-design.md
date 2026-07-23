@@ -764,12 +764,11 @@ OpenDAL requires either:
 - `access_token`, or
 - `refresh_token` + `client_id` + `client_secret`
 
-### SFTP (Unix only)
+### SFTP
 
-OpenDAL 0.57 provides `sftp` through its Unix-only OpenSSH-based service.
-Ropendal enables it for ordinary Unix source builds and rejects it for
-Windows/Rtools and wasm/webR builds rather than allowing a platform-dependent
-installation failure. It is a direct SFTP connection, not an SSHFS mount.
+SFTP is a direct service, not an SSHFS mount. Ropendal supports explicit,
+mutually exclusive password and key/agent authentication behind the same
+`"sftp"` scheme:
 
 ```r
 fs <- opendal(
@@ -777,16 +776,25 @@ fs <- opendal(
   endpoint = "ssh://sftp.example.test:22",
   root = "/data/project",
   user = "alice",
-  key = "/home/alice/.ssh/id_ed25519",
+  password = Sys.getenv("COMPANY_SFTP_PASSWORD"),
   known_hosts_strategy = "strict"
 )
 ```
 
-The service requires a system OpenSSH client and key-based authentication;
-OpenDAL does not support SFTP password login. `known_hosts_strategy` is
-`"strict"` by default; `"accept"` and `"add"` are explicit trust-on-first-use
-policies for controlled cases such as disposable local fixtures. A user-managed
-SSHFS mount remains a local `opendal("fs", root = mount_path)` handle.
+Supplying `password` selects Ropendal's pure-Rust Tokio `russh` +
+`russh-sftp` OpenDAL adapter on native builds. It implements the normal
+OpenDAL/Ropendal byte, metadata, namespace, and C async operations. Supplying
+`key = "/home/alice/.ssh/id_ed25519"` instead selects OpenDAL's
+OpenSSH-based key/agent service on Unix. The latter still requires the system
+OpenSSH client and remains unavailable on Windows/Rtools; wasm/webR supports
+neither path.
+
+`known_hosts_strategy` is `"strict"` by default; `"accept"` explicitly
+disables verification, while `"add"` trusts and records a new host key. Either
+non-strict choice is only for controlled cases such as disposable local
+fixtures. Passwords must be redacted from all metadata, diagnostics, errors,
+examples, fixtures, and print output. A user-managed SSHFS mount remains a
+local `opendal("fs", root = mount_path)` handle.
 
 Potential explicit helper for users of gargle without a hard dependency:
 
@@ -1046,7 +1054,7 @@ This is the important path for high-performance consumers: indexed file readers,
 
 ## Package build features
 
-OpenDAL feature set includes Google Drive in addition to the object-store/file/http defaults. SFTP is kept as a separate feature because upstream supports it on Unix only; Unix `configure` enables it for normal builds, while Windows/Rtools and wasm/webR reject it.
+OpenDAL feature set includes Google Drive in addition to the object-store/file/http defaults. OpenDAL's key/agent SFTP stays a Unix-only `sftp` feature; the native password-capable `sftp-password` feature adds Ropendal's pure-Rust `russh` adapter. Unix `configure` enables key/agent SFTP for normal builds; wasm/webR rejects both paths.
 
 ```toml
 opendal = { version = "0.57", default-features = false, features = [
@@ -1068,6 +1076,7 @@ opendal = { version = "0.57", default-features = false, features = [
 ```toml
 [features]
 sftp = ["opendal/services-sftp"]
+sftp-password = ["dep:russh", "dep:russh-sftp"]
 ```
 
 Call `opendal::init_default_registry()` explicitly during package initialization or before construction because static-linked bindings cannot rely on service registry constructors.

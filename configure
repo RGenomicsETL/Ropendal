@@ -83,6 +83,9 @@ for arg in "$@"; do
     --enable-sftp)
       append_feature "sftp"
       ;;
+    --enable-sftp-password)
+      append_feature "sftp-password"
+      ;;
     --enable-cloud)
       append_feature "cloud"
       ;;
@@ -96,7 +99,8 @@ for arg in "$@"; do
       echo "  --enable-gcs                    enable Google Cloud Storage service"
       echo "  --enable-azblob                 enable Azure Blob service"
       echo "  --enable-gdrive                 enable Google Drive service"
-      echo "  --enable-sftp                   enable SFTP service (Unix only)"
+      echo "  --enable-sftp                   enable OpenDAL key/agent SFTP service (Unix only)"
+      echo "  --enable-sftp-password          enable Ropendal password SFTP adapter"
       echo "  --enable-cloud                  enable S3, GCS, Azure Blob, and Google Drive"
       exit 0
       ;;
@@ -125,8 +129,8 @@ if [ "${WASM_TARGET}" != "true" ] && [ -z "${NO_DEFAULT_FEATURES}" ]; then
 fi
 
 FEATURES="$(printf '%s %s' "${SAVVY_FEATURES}" "${CONFIGURE_FEATURES}" | xargs)"
-if [ "${WASM_TARGET}" = "true" ] && printf '%s\n' "${FEATURES}" | tr ',' ' ' | grep -Eq '(^|[[:space:]])sftp($|[[:space:]])'; then
-  echo "SFTP is supported only on Unix native builds; it cannot be enabled for wasm/webR" >&2
+if [ "${WASM_TARGET}" = "true" ] && printf '%s\n' "${FEATURES}" | tr ',' ' ' | grep -Eq '(^|[[:space:]])sftp(-password)?($|[[:space:]])'; then
+  echo "SFTP is supported only on native builds; it cannot be enabled for wasm/webR" >&2
   exit 1
 fi
 if [ -n "${FEATURES}" ]; then

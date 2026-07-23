@@ -76,21 +76,22 @@ options(repos = c(
 install.packages("Ropendal")
 ```
 
-Unix source builds (Linux and macOS) include OpenDAL's key-authenticated SFTP
-service by default. It uses the system OpenSSH client. Upstream OpenDAL supports
-that service on Unix only, so Ropendal deliberately does not enable it for
-Windows/Rtools or wasm/webR builds.
+Native source builds include Ropendal's pure-Rust, Tokio-native SFTP password
+adapter. Unix builds also include OpenDAL's key/agent-authenticated SFTP service,
+which uses the system OpenSSH client. The password adapter and key/agent mode
+share the same `opendal("sftp", ...)` interface but are selected by supplying
+exactly one of `password` or `key`; neither is available in wasm/webR builds.
 
 Source builds can still use explicit OpenDAL feature flags when you need custom
 provider wiring.
 
 ```{r install-source-features, eval = FALSE}
-# On Unix, keep only local filesystem and key-authenticated SFTP support.
+# Keep only local filesystem and password-authenticated SFTP support.
 install.packages(
   "Ropendal",
   repos = c("https://sounkou-bioinfo.r-universe.dev", "https://cloud.r-project.org"),
   type = "source",
-  configure.args = "--without-default-rust-features --with-rust-features=fs,sftp"
+  configure.args = "--without-default-rust-features --with-rust-features=fs,sftp-password"
 )
 
 # Add the current cloud-service feature group explicitly.
@@ -196,8 +197,7 @@ rawToChar(read_iter_collect(reader))
 
 ## Tour of the API across backends
 
-The same `fs_*` calls apply to HTTP(S), S3, Google Drive, and Unix SFTP
-handles.
+The same `fs_*` calls apply to HTTP(S), S3, Google Drive, and SFTP handles.
 
 ### HTTP/HTTPS read example
 
@@ -223,20 +223,20 @@ fs_stat(http_fs, "hello.txt")[c("path", "type", "size")]
 fixture$stop()
 ```
 
-### SFTP example (Unix only)
+### SFTP example
 
-SFTP is an SSH file-transfer service, not SSHFS. Ropendal connects directly via
-OpenDAL and the system OpenSSH client; it does not make or manage an SSHFS
-mount. OpenDAL's SFTP service requires key-based authentication and does not
-support password login. Keep host-key verification strict for real servers.
+SFTP is an SSH file-transfer service, not SSHFS. Ropendal connects directly; it
+does not make or manage an SSHFS mount. Password and key authentication are
+explicit and mutually exclusive. Keep host-key verification strict for real
+servers.
 
-```{r api-tour-sftp, eval = FALSE}
+```{r api-tour-sftp-password, eval = FALSE}
 sftp_fs <- opendal(
   "sftp",
   endpoint = "ssh://sftp.example.test:22",
   root = "/data/project",
   user = "alice",
-  key = "/home/alice/.ssh/id_ed25519",
+  password = Sys.getenv("COMPANY_SFTP_PASSWORD"),
   known_hosts_strategy = "strict"
 )
 
@@ -244,10 +244,12 @@ rawToChar(fs_read(sftp_fs, "notes/hello.txt"))
 fs_replace(sftp_fs, "notes/hello.txt", charToRaw("updated over SFTP\n"))
 ```
 
-`known_hosts_strategy = "accept"` or `"add"` has trust-on-first-use semantics;
-use one only when that policy is intentional, such as an ephemeral local test
-server. Windows/Rtools and wasm/webR builds reject the `sftp` feature because
-OpenDAL currently supports it on Unix only.
+On Unix, omit `password` and provide `key = "/home/alice/.ssh/id_ed25519"` to
+use OpenDAL's key/agent-authenticated SFTP service instead. Do not place a
+password in an SFTP URI. `known_hosts_strategy = "accept"` disables host-key
+verification; `"add"` trusts and records a new host key. Use either only when
+that policy is intentional, such as an ephemeral local test server. wasm/webR
+builds do not include SFTP.
 
 ```{r readme-minio-helper, include = FALSE}
 readme_run_s3 <- requireNamespace("processx", quietly = TRUE) &&
@@ -809,7 +811,9 @@ Common targets:
 make --no-print-directory help
 ```
 
-On Unix, `make test-sftp` starts a disposable key-authenticated SFTP server in
-Docker and runs the opt-in SFTP integration test. It requires Docker and the
-OpenSSH client (`ssh` and `ssh-keygen`); the fixture's accepted host key is kept
-in a temporary `HOME` and removed afterwards.
+`make test-sftp` starts a disposable Docker SFTP server with both ephemeral
+key- and password-authenticated users and runs both integration profiles. It
+requires Docker, Python, and the OpenSSH client (`ssh`, `ssh-keygen`, and
+`ssh-keyscan`); the fixture host key is kept in a temporary `HOME`: the password profile verifies
+it strictly, while the upstream key/agent profile uses its explicit
+verification-disabled test policy. The temporary state is removed afterwards.

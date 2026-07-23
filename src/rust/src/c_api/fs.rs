@@ -77,6 +77,26 @@ pub unsafe extern "C" fn ropendal_fs_open(
         pairs.push((key, value));
     }
     init_registry();
+    #[cfg(feature = "sftp-password")]
+    let password_sftp = match crate::sftp_password::operator_from_pairs(&scheme, &pairs) {
+        Ok(op) => op,
+        Err(e) => {
+            set_c_error(err, c_error_from_opendal(e, "fs_open", ""));
+            return 1;
+        }
+    };
+    #[cfg(feature = "sftp-password")]
+    let op = match password_sftp {
+        Some(op) => op,
+        None => match Operator::via_iter(&scheme, pairs) {
+            Ok(op) => op,
+            Err(e) => {
+                set_c_error(err, c_error_from_opendal(e, "fs_open", ""));
+                return 1;
+            }
+        },
+    };
+    #[cfg(not(feature = "sftp-password"))]
     let op = match Operator::via_iter(&scheme, pairs) {
         Ok(op) => op,
         Err(e) => {

@@ -2,7 +2,8 @@
 #'
 #' Byte-oriented filesystem operations backed by Apache OpenDAL. The current
 #' implementation includes local `fs`, HTTP, S3-compatible, Google Drive, and
-#' Unix-only SFTP handles; raw byte operations; metadata and listing where supported; error
+#' SFTP handles (password-authenticated on native builds; OpenDAL key/agent
+#' authentication on Unix); raw byte operations; metadata and listing where supported; error
 #' values; Aio handles for read, write, metadata, and namespace operations; and
 #' a pure C API.
 #'
@@ -25,7 +26,11 @@
 #'   error_kind error_message error_operation error_path
 #' @export OpendalBytes
 #' @param scheme OpenDAL service scheme.
-#' @param ... Named service configuration entries.
+#' @param ... Named service configuration entries. For SFTP, supply `endpoint`,
+#'   `user`, and exactly one of `key` (OpenDAL key/agent authentication on Unix)
+#'   or `password` (Ropendal's native adapter); `known_hosts_strategy` is
+#'   `"strict"` by default and may be `"accept"` or `"add"`. Passwords are
+#'   never printed and the native password adapter is unavailable in wasm/webR.
 #' @param root Root path/prefix for the service.
 #' @param config For `opendal()`, named list of service configuration entries.
 #'   For `serialize_raw()` / `deserialize_raw()`, serialization config.
@@ -58,11 +63,6 @@
 #' @param sas_token Azure Blob Storage SAS token.
 #' @param endpoint Service endpoint. For SFTP, use an OpenSSH-style host such
 #'   as `ssh://sftp.example.test:22` or `alice@sftp.example.test`.
-#' @param user SFTP login user.
-#' @param key Path to the SFTP private key used for key-based authentication.
-#' @param known_hosts_strategy SFTP host-key policy: `"strict"` (the default),
-#'   `"accept"`, or `"add"`. Use `"strict"` for real servers; the other modes
-#'   are appropriate only when their trust-on-first-use behavior is deliberate.
 #' @param access_token Google Drive access token, mutually exclusive with
 #'   `refresh_token`.
 #' @param refresh_token Google Drive refresh token.
@@ -300,12 +300,14 @@
 #' and region access copy only requested bytes, while pointer access materializes
 #' an R-owned raw vector.
 #'
-#' SFTP is enabled by default for Unix source builds and is unavailable on
-#' Windows/Rtools and wasm/webR because OpenDAL's SFTP service is Unix-only.
-#' It uses the system OpenSSH client and supports key-based authentication, not
-#' password login. Configure `endpoint`, `root`, `user`, `key`, and an explicit
-#' `known_hosts_strategy` through `opendal("sftp", ...)`; use `"strict"` host
-#' verification for ordinary use.
+#' On native builds, `opendal("sftp", password = ...)` uses Ropendal's
+#' Tokio-native Rust SFTP adapter and supports password authentication. It is
+#' mutually exclusive with `key`; passwords are never included in handle
+#' metadata, diagnostics, or printing. On Unix, key/agent-authenticated SFTP
+#' without `password` continues to use OpenDAL's OpenSSH-based service.
+#' wasm/webR builds support neither path. Configure `endpoint`, `root`, `user`,
+#' one of `password` or `key`, and an explicit `known_hosts_strategy`; use
+#' `"strict"` host verification for ordinary use.
 #'
 #' SSHFS is separate: a mounted SSHFS directory is used through the local
 #' `opendal("fs", root = ...)` service, while `opendal("sftp", ...)` opens an

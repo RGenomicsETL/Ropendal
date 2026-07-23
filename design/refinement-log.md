@@ -261,25 +261,40 @@ Status: `open`
 
 Need design the internal registry that maps a service/config to a declared Ropendal capability profile. This is where service-specific Rust/C adapters live, including Google Drive ergonomics.
 
-### Unix-only SFTP service profile
+### SFTP service profiles and authentication
 
 Status: `implemented`
 
-OpenDAL 0.57's `sftp` service is an OpenSSH-based, Unix-only direct SFTP
-backend, not an SSHFS adapter. Ropendal's Unix `configure` enables its `sftp`
-Cargo feature for normal source builds; Windows/Rtools and wasm/webR configure
-paths reject that feature explicitly so package installation remains portable.
+SFTP is a direct service, not an SSHFS adapter. Ropendal selects one of two
+native implementations behind the same `opendal("sftp", ...)` scheme:
 
-The exposed OpenDAL configuration is `endpoint`, optional `root`, `user`,
-private-key `key`, and `known_hosts_strategy`. Password login is deliberately
-not offered upstream. Production callers should retain the default
-`known_hosts_strategy = "strict"`; `accept`/`add` are explicit
-trust-on-first-use policies used only where appropriate, such as the disposable
-Docker fixture behind `make test-sftp`. The fixture generates an ephemeral key
-and isolates its known-hosts state in a temporary `HOME`.
+- supplying `password` selects Ropendal's pure-Rust Tokio adapter built from
+  `russh` and `russh-sftp`; it supports password authentication on native
+  targets;
+- supplying `key` (or relying on the OpenSSH agent/configuration) selects
+  OpenDAL's OpenSSH-based, Unix-only service.
 
-A user-managed SSHFS mount remains an `fs` service rooted at the mount point.
-No SSHFS lifecycle, mount, or credential API is added to Ropendal.
+`password` and `key` are mutually exclusive. The password adapter is an
+OpenDAL `Access` adapter, so the normal R and C async byte, metadata, listing,
+copy, rename, and namespace surfaces remain available instead of becoming a
+special R-side client. Its current internal connection strategy opens fresh
+SSH/SFTP sessions for remote interactions; pooling is a performance refinement,
+not a user-facing option.
+
+The exposed configuration is `endpoint`, optional `root`, `user`, exactly one
+of private-key `key` or `password`, and `known_hosts_strategy`. Passwords are
+not included in backend debug output, handle metadata, error context, package
+metadata, documentation output, or fixtures. Production callers should retain
+the default `known_hosts_strategy = "strict"`; `accept` deliberately disables
+verification and `add` trusts and records a new host key. Either non-strict
+policy is only for controlled use. The disposable Docker fixture behind
+`make test-sftp` generates its password and key at runtime, records its host
+key in a temporary `HOME`, and exercises strict verification for the password
+adapter; the upstream OpenDAL key/agent test uses `accept`.
+
+wasm/webR builds support neither SFTP path. A user-managed SSHFS mount remains
+an `fs` service rooted at the mount point; no SSHFS lifecycle, mount, or
+credential API is added to Ropendal.
 
 ### Auth refresh and secret lifetime
 

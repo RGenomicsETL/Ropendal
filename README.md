@@ -71,21 +71,23 @@ options(repos = c(
 install.packages("Ropendal")
 ```
 
-Unix source builds (Linux and macOS) include OpenDAL’s key-authenticated
-SFTP service by default. It uses the system OpenSSH client. Upstream
-OpenDAL supports that service on Unix only, so Ropendal deliberately
-does not enable it for Windows/Rtools or wasm/webR builds.
+Native source builds include Ropendal’s pure-Rust, Tokio-native SFTP
+password adapter. Unix builds also include OpenDAL’s
+key/agent-authenticated SFTP service, which uses the system OpenSSH
+client. The password adapter and key/agent mode share the same
+`opendal("sftp", ...)` interface but are selected by supplying exactly
+one of `password` or `key`; neither is available in wasm/webR builds.
 
 Source builds can still use explicit OpenDAL feature flags when you need
 custom provider wiring.
 
 ``` r
-# On Unix, keep only local filesystem and key-authenticated SFTP support.
+# Keep only local filesystem and password-authenticated SFTP support.
 install.packages(
   "Ropendal",
   repos = c("https://sounkou-bioinfo.r-universe.dev", "https://cloud.r-project.org"),
   type = "source",
-  configure.args = "--without-default-rust-features --with-rust-features=fs,sftp"
+  configure.args = "--without-default-rust-features --with-rust-features=fs,sftp-password"
 )
 
 # Add the current cloud-service feature group explicitly.
@@ -223,7 +225,7 @@ rawToChar(read_iter_collect(reader))
 
 ## Tour of the API across backends
 
-The same `fs_*` calls apply to HTTP(S), S3, Google Drive, and Unix SFTP
+The same `fs_*` calls apply to HTTP(S), S3, Google Drive, and SFTP
 handles.
 
 ### HTTP/HTTPS read example
@@ -260,12 +262,11 @@ fixture$stop()
 #> [1] TRUE
 ```
 
-### SFTP example (Unix only)
+### SFTP example
 
 SFTP is an SSH file-transfer service, not SSHFS. Ropendal connects
-directly via OpenDAL and the system OpenSSH client; it does not make or
-manage an SSHFS mount. OpenDAL’s SFTP service requires key-based
-authentication and does not support password login. Keep host-key
+directly; it does not make or manage an SSHFS mount. Password and key
+authentication are explicit and mutually exclusive. Keep host-key
 verification strict for real servers.
 
 ``` r
@@ -274,7 +275,7 @@ sftp_fs <- opendal(
   endpoint = "ssh://sftp.example.test:22",
   root = "/data/project",
   user = "alice",
-  key = "/home/alice/.ssh/id_ed25519",
+  password = Sys.getenv("COMPANY_SFTP_PASSWORD"),
   known_hosts_strategy = "strict"
 )
 
@@ -282,10 +283,13 @@ rawToChar(fs_read(sftp_fs, "notes/hello.txt"))
 fs_replace(sftp_fs, "notes/hello.txt", charToRaw("updated over SFTP\n"))
 ```
 
-`known_hosts_strategy = "accept"` or `"add"` has trust-on-first-use
-semantics; use one only when that policy is intentional, such as an
-ephemeral local test server. Windows/Rtools and wasm/webR builds reject
-the `sftp` feature because OpenDAL currently supports it on Unix only.
+On Unix, omit `password` and provide
+`key = "/home/alice/.ssh/id_ed25519"` to use OpenDAL’s
+key/agent-authenticated SFTP service instead. Do not place a password in
+an SFTP URI. `known_hosts_strategy = "accept"` disables host-key
+verification; `"add"` trusts and records a new host key. Use either only
+when that policy is intentional, such as an ephemeral local test server.
+wasm/webR builds do not include SFTP.
 
 ### S3-compatible store (local MinIO)
 
@@ -371,9 +375,9 @@ bench::mark(
 #> # A tibble: 3 × 5
 #>   expression                       min   median `itr/sec` mem_alloc
 #>   <bch:expr>                  <bch:tm> <bch:tm>     <dbl> <bch:byt>
-#> 1 ropendal_replace               303ms    308ms      3.21        0B
-#> 2 ropendal_replace_concurrent    303ms    315ms      3.16        0B
-#> 3 paws_put                       693ms    693ms      1.44    67.7MB
+#> 1 ropendal_replace             126.7ms  134.6ms      7.58        0B
+#> 2 ropendal_replace_concurrent   77.1ms   77.7ms      7.72        0B
+#> 3 paws_put                       744ms    744ms      1.34    67.7MB
 ```
 
 Then we compare download paths. The Ropendal rows separate default
@@ -403,11 +407,11 @@ bench::mark(
 #> # A tibble: 5 × 5
 #>   expression                        min   median `itr/sec` mem_alloc
 #>   <bch:expr>                   <bch:tm> <bch:tm>     <dbl> <bch:byt>
-#> 1 ropendal_read                  62.2ms   62.2ms      16.1      64MB
-#> 2 ropendal_read_concurrent       36.5ms   36.6ms      27.3      64MB
-#> 3 ropendal_read_aio              41.7ms   48.6ms      20.6      64MB
-#> 4 ropendal_read_aio_concurrent   32.9ms   32.9ms      30.4      64MB
-#> 5 paws_get                       56.6ms   57.2ms      16.7    64.3MB
+#> 1 ropendal_read                  49.4ms   49.4ms      20.2      64MB
+#> 2 ropendal_read_concurrent       33.1ms   34.4ms      29.1      64MB
+#> 3 ropendal_read_aio              40.3ms   40.8ms      24.5      64MB
+#> 4 ropendal_read_aio_concurrent   32.4ms   32.4ms      30.8      64MB
+#> 5 paws_get                       56.2ms   58.3ms      17.1    64.3MB
 ```
 
 ### Google Drive read example (credentials explicit)
@@ -727,10 +731,11 @@ while (status > 0L) {
 #> native request 3: running; wait write
 #> native request 4: running; wait write
 #> native request 5: running; wait write
-#> native request 6: running; wait stat
-#> native request 7: running; wait list
-#> native request 8: running; wait read_into
-#> native request 9: done; complete
+#> native request 6: running; wait write
+#> native request 7: running; wait stat
+#> native request 8: running; wait list
+#> native request 9: running; wait read_into
+#> native request 10: done; complete
 if (status < 0L) {
   message <- ffi$ropendal_demo_error(task)
   ffi$ropendal_demo_free(task)
@@ -745,7 +750,7 @@ c(
   bytes_read_into_c_buffer = nread
 )
 #>                  r_ticks                   r_work bytes_read_into_c_buffer 
-#>                        9                  4504500                       17
+#>                       10                  5005000                       17
 ```
 
 ## Development
@@ -761,7 +766,7 @@ Common development targets:
   make test-http       run opt-in local HTTP fixture tests
   make test-s3         run opt-in public read-only S3-compatible tests
   make test-s3-minio   start local MinIO and run writable S3-compatible tests
-  make test-sftp       start local key-authenticated SFTP and run Unix-only tests
+  make test-sftp       start local key/password SFTP and run native integration tests
   make test-gdrive     run opt-in Google Drive tests using local gdrive3 JSON defaults
   make test-ci         run C API checks and CI-only tinytest
   make rdm             render README.md from README.Rmd
@@ -771,7 +776,10 @@ Common development targets:
   make check           build and run R CMD check --as-cran --no-manual
 ```
 
-On Unix, `make test-sftp` starts a disposable key-authenticated SFTP
-server in Docker and runs the opt-in SFTP integration test. It requires
-Docker and the OpenSSH client (`ssh` and `ssh-keygen`); the fixture’s
-accepted host key is kept in a temporary `HOME` and removed afterwards.
+`make test-sftp` starts a disposable Docker SFTP server with both
+ephemeral key- and password-authenticated users and runs both
+integration profiles. It requires Docker, Python, and the OpenSSH client
+(`ssh`, `ssh-keygen`, and `ssh-keyscan`); the fixture host key is kept
+in a temporary `HOME`: the password profile verifies it strictly, while
+the upstream key/agent profile uses its explicit verification-disabled
+test policy. The temporary state is removed afterwards.

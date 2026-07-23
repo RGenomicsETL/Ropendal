@@ -58,8 +58,11 @@ for arg in "$@"; do
       append_feature "gdrive"
       ;;
     --enable-sftp)
-      echo "SFTP is supported only on Unix native builds and cannot be enabled with Rtools" >&2
+      echo "OpenDAL key/agent SFTP is supported only on Unix native builds and cannot be enabled with Rtools" >&2
       exit 1
+      ;;
+    --enable-sftp-password)
+      append_feature "sftp-password"
       ;;
     --enable-cloud)
       append_feature "cloud"
@@ -74,7 +77,8 @@ for arg in "$@"; do
       echo "  --enable-gcs                    enable Google Cloud Storage service"
       echo "  --enable-azblob                 enable Azure Blob service"
       echo "  --enable-gdrive                 enable Google Drive service"
-      echo "  --enable-sftp                   unsupported on Rtools/Windows"
+      echo "  --enable-sftp                   OpenDAL key/agent SFTP; unsupported on Rtools/Windows"
+      echo "  --enable-sftp-password          enable Ropendal password SFTP adapter"
       echo "  --enable-cloud                  enable S3, GCS, Azure Blob, and Google Drive"
       exit 0
       ;;

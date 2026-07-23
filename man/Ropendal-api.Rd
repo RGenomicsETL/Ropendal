@@ -226,7 +226,11 @@ error_path(x)
 \arguments{
 \item{scheme}{OpenDAL service scheme.}
 
-\item{...}{Named service configuration entries.}
+\item{...}{Named service configuration entries. For SFTP, supply \code{endpoint},
+\code{user}, and exactly one of \code{key} (OpenDAL key/agent authentication on Unix)
+or \code{password} (Ropendal's native adapter); \code{known_hosts_strategy} is
+\code{"strict"} by default and may be \code{"accept"} or \code{"add"}. Passwords are
+never printed and the native password adapter is unavailable in wasm/webR.}
 
 \item{root}{Root path/prefix for the service.}
 
@@ -279,14 +283,6 @@ uses OpenDAL's timeout-layer default.}
 
 \item{endpoint}{Service endpoint. For SFTP, use an OpenSSH-style host such
 as \verb{ssh://sftp.example.test:22} or \code{alice@sftp.example.test}.}
-
-\item{user}{SFTP login user.}
-
-\item{key}{Path to the SFTP private key used for key-based authentication.}
-
-\item{known_hosts_strategy}{SFTP host-key policy: \code{"strict"} (the default),
-\code{"accept"}, or \code{"add"}. Use \code{"strict"} for real servers; the other modes
-are appropriate only when their trust-on-first-use behavior is deliberate.}
 
 \item{access_token}{Google Drive access token, mutually exclusive with
 \code{refresh_token}.}
@@ -424,7 +420,8 @@ classed error values depending on the operation and mode.
 \description{
 Byte-oriented filesystem operations backed by Apache OpenDAL. The current
 implementation includes local \code{fs}, HTTP, S3-compatible, Google Drive, and
-Unix-only SFTP handles; raw byte operations; metadata and listing where supported; error
+SFTP handles (password-authenticated on native builds; OpenDAL key/agent
+authentication on Unix); raw byte operations; metadata and listing where supported; error
 values; Aio handles for read, write, metadata, and namespace operations; and
 a pure C API.
 }
@@ -455,12 +452,14 @@ vector. \code{offset} is zero-based and \code{end} is exclusive, matching read r
 and region access copy only requested bytes, while pointer access materializes
 an R-owned raw vector.
 
-SFTP is enabled by default for Unix source builds and is unavailable on
-Windows/Rtools and wasm/webR because OpenDAL's SFTP service is Unix-only.
-It uses the system OpenSSH client and supports key-based authentication, not
-password login. Configure \code{endpoint}, \code{root}, \code{user}, \code{key}, and an explicit
-\code{known_hosts_strategy} through \code{opendal("sftp", ...)}; use \code{"strict"} host
-verification for ordinary use.
+On native builds, \code{opendal("sftp", password = ...)} uses Ropendal's
+Tokio-native Rust SFTP adapter and supports password authentication. It is
+mutually exclusive with \code{key}; passwords are never included in handle
+metadata, diagnostics, or printing. On Unix, key/agent-authenticated SFTP
+without \code{password} continues to use OpenDAL's OpenSSH-based service.
+wasm/webR builds support neither path. Configure \code{endpoint}, \code{root}, \code{user},
+one of \code{password} or \code{key}, and an explicit \code{known_hosts_strategy}; use
+\code{"strict"} host verification for ordinary use.
 
 SSHFS is separate: a mounted SSHFS directory is used through the local
 \code{opendal("fs", root = ...)} service, while \code{opendal("sftp", ...)} opens an

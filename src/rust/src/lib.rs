@@ -13,3 +13,5 @@ mod metadata;
 mod ops;
 mod path;
 mod r_values;
+#[cfg(feature = "sftp-password")]
+mod sftp_password;

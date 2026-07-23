@@ -181,6 +181,7 @@ ROPENDAL_TEST_GCS=true
 ROPENDAL_TEST_AZBLOB=true
 ROPENDAL_TEST_GDRIVE=true
 ROPENDAL_TEST_SFTP=true
+ROPENDAL_TEST_SFTP_PASSWORD=true
 ```
 
 Service env vars:
@@ -189,7 +190,7 @@ Service env vars:
 - Local writable S3-compatible endpoint: `ROPENDAL_TEST_S3_MINIO=true`; `make test-s3-minio` starts MinIO via `tools/run-minio-test.sh`, creates a bucket, and passes `ROPENDAL_S3_MINIO_ENDPOINT`, `ROPENDAL_S3_MINIO_BUCKET`, `ROPENDAL_S3_MINIO_REGION`, `ROPENDAL_S3_MINIO_ACCESS_KEY_ID`, `ROPENDAL_S3_MINIO_SECRET_ACCESS_KEY`, and `ROPENDAL_S3_MINIO_ROOT`. This target is suitable for CI because it needs no cloud credentials.
 - External S3 credentials, if added later: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN`, `AWS_REGION`, `ROPENDAL_TEST_S3_BUCKET`, `ROPENDAL_TEST_S3_PREFIX`.
 - GDrive: `make test-gdrive` passes `ROPENDAL_GDRIVE_SECRET_JSON`, `ROPENDAL_GDRIVE_TOKENS_JSON`, `ROPENDAL_GDRIVE_ROOT`, and `ROPENDAL_GDRIVE_FILE`; direct token/provider-chain helpers are intentionally not part of hidden core lookup.
-- SFTP (Unix only): `make test-sftp` starts a disposable key-authenticated `atmoz/sftp` Docker container, generates an ephemeral Ed25519 key, isolates its accepted host key in a temporary `HOME`, and passes `ROPENDAL_SFTP_ENDPOINT`, `ROPENDAL_SFTP_ROOT`, `ROPENDAL_SFTP_USER`, `ROPENDAL_SFTP_KEY`, and `ROPENDAL_SFTP_KNOWN_HOSTS_STRATEGY=accept`. External tests must set the same first four variables and should use a disposable remote root; `strict` is the production default host-key policy.
+- SFTP: `make test-sftp` starts a disposable `atmoz/sftp` Docker container with both a key-authenticated user and a password-authenticated user. It generates the Ed25519 key and password at runtime, records the fixture host key in a temporary `HOME`, and passes `ROPENDAL_SFTP_ENDPOINT`, `ROPENDAL_SFTP_ROOT`, `ROPENDAL_SFTP_USER`, `ROPENDAL_SFTP_KEY`, `ROPENDAL_SFTP_PASSWORD_USER`, `ROPENDAL_SFTP_PASSWORD`, `ROPENDAL_TEST_SFTP=true`, `ROPENDAL_TEST_SFTP_PASSWORD=true`, and `ROPENDAL_SFTP_KNOWN_HOSTS_STRATEGY=accept` for upstream OpenDAL key testing plus `ROPENDAL_SFTP_PASSWORD_KNOWN_HOSTS_STRATEGY=strict` for the native password adapter. External tests must set either the key or password credentials for a disposable remote root; `strict` is the production default host-key policy.
 - HTTP: `ROPENDAL_TEST_HTTP=true`; local fixture tests use Ropendal's internal non-blocking Rust HTTP fixture, including required request-header checks
 
 Coverage:
@@ -199,7 +200,7 @@ Coverage:
 - HTTP fixture read/stat/range reads, unsupported listing value, async stat/exists/unsupported-listing coverage, explicit `headers=` authentication path, and delayed-response pending Aio state
 - classed capability profile checks for local `fs`, HTTP fixture, public S3, and local MinIO
 - local MinIO write/read/stat/list/copy/delete in an isolated prefix plus async write/read/stat/exists/list/copy/rename/delete coverage
-- Unix SFTP key-authenticated write/read/range/stat/exists/list/mkdir/delete/copy/rename coverage, including async write/read/stat/exists/copy/rename/delete and an enabled-service registry unit test without a network connection
+- key/agent SFTP and Ropendal password SFTP write/read/range/stat/exists/list/mkdir/delete/copy/rename coverage, including password append and async write/read/exists/delete; the key-service registry also has a no-network unit test
 - unsupported S3-compatible atomic rename returns an error value rather than silent emulation, sync and async
 - range reads
 - concurrency/deadline options accepted and bounded, including `runtime_config(threads=)`, `layer_concurrent_limit(max=)`, and `layer_timeout(request_timeout=, io_timeout=)` on filesystem constructors

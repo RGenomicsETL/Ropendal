@@ -32,7 +32,7 @@ help:
 	  '  make test-http       run opt-in local HTTP fixture tests' \
 	  '  make test-s3         run opt-in public read-only S3-compatible tests' \
 	  '  make test-s3-minio   start local MinIO and run writable S3-compatible tests' \
-	  '  make test-sftp       start local key-authenticated SFTP and run Unix-only tests' \
+	  '  make test-sftp       start local key/password SFTP and run native integration tests' \
 	  '  make test-gdrive     run opt-in Google Drive tests using local gdrive3 JSON defaults' \
 	  '  make test-ci         run C API checks and CI-only tinytest' \
 	  '  make rdm             render README.md from README.Rmd' \

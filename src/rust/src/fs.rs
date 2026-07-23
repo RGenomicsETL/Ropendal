@@ -1137,6 +1137,16 @@ impl OpendalFs {
         let max_inflight = checked_positive_usize(max_inflight, "max_inflight")?;
         let request_timeout = checked_positive_duration(timeout_seconds, "request_timeout")?;
         let io_timeout = checked_positive_duration(io_timeout_seconds, "io_timeout")?;
+        #[cfg(feature = "sftp-password")]
+        let password_sftp = crate::sftp_password::operator_from_pairs(scheme, &config)
+            .map_err(|e| savvy::Error::new(&format!("cannot open password SFTP operator: {e}")))?;
+        #[cfg(feature = "sftp-password")]
+        let op = match password_sftp {
+            Some(op) => op,
+            None => Operator::via_iter(scheme, config)
+                .map_err(|e| savvy::Error::new(&format!("cannot open OpenDAL operator: {e}")))?,
+        };
+        #[cfg(not(feature = "sftp-password"))]
         let op = Operator::via_iter(scheme, config)
             .map_err(|e| savvy::Error::new(&format!("cannot open OpenDAL operator: {e}")))?;
         let op = apply_http_headers(op, headers)?;
