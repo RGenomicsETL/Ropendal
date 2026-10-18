@@ -14,6 +14,10 @@
   current async, credential, serializer, and native C API behavior.
 - Documentation: documented R-universe Linux binary repository setup.
 - Build: added a webR/wasm package-load fallback and local rwasm build helper.
+- Build: Windows arm64 source builds now derive the Rust target from the C
+  compiler, so Rtools' aarch64 clang/gnullvm toolchain builds
+  `aarch64-pc-windows-gnullvm` instead of failing the DLL link against a
+  hardcoded `x86_64-pc-windows-gnu` target directory.
 - Reads: `fs_read()` / `fs_read_bytes()` now support multiple ranges from one
   path and list-of-ranges shapes across multiple paths, while preserving ordered
   flat or nested results. `byte_ranges()` adds a request-object form for

@@ -55,7 +55,7 @@ GitHub Actions jobs:
 | GitHub Actions workflow | yes | no local | defined | R API tinytest and R CMD check run on Ubuntu/Windows/macOS; C API, MinIO, and SFTP jobs run on Ubuntu; pkgdown deploy workflow exists |
 | savvy/roxygen generated wrappers and namespace | yes | yes | yes | `R/000-wrappers.R`, `src/init.c`, `src/rust/api.h`, `NAMESPACE` via `make rd` |
 | Rust modules | yes | yes | yes | `aio`, `common`, `error`, `fs`, `http_fixture`, `http_headers`, `io_iter`, `metadata`, `ops`, `path`, `r_values`, `sftp_password`, `c_api/*` |
-| configure / Makevars templates | yes | yes | yes | package tarball installs from generated `src/Makevars`; source builds support Cargo feature selection via `SAVVY_FEATURES` and `--with-rust-features`; wasm builds compile a loadable C shim instead of Rust/OpenDAL |
+| configure / Makevars templates | yes | yes | yes | package tarball installs from generated `src/Makevars`; source builds support Cargo feature selection via `SAVVY_FEATURES` and `--with-rust-features`; Windows builds derive the Rust target from the C compiler so Rtools aarch64/clang uses `aarch64-pc-windows-gnullvm`; wasm builds compile a loadable C shim instead of Rust/OpenDAL |
 | public package metadata | yes | n/a | defined | GitHub repo is public; R-universe manifest includes Ropendal; pkgdown URL and BugReports are in `DESCRIPTION`; `NEWS.md` records the public release and current development section |
 
 ## R API contracts

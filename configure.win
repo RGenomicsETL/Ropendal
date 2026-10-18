@@ -104,8 +104,24 @@ elif [ -n "${NO_DEFAULT_FEATURES}" ]; then
   FEATURE_FLAGS="${NO_DEFAULT_FEATURES}"
 fi
 
+# Rtools on Windows arm64 ships an aarch64 clang/gnullvm toolchain, so derive
+# the Rust target from the C compiler instead of assuming x86_64. A hardcoded
+# x86_64 target makes cargo emit arm64 artifacts under a different target
+# directory than the one R links against, and the DLL link then fails with
+# 'unable to find library -lropendal'.
+CC="$("${R_HOME}/bin/R" CMD config CC)"
+case "$(${CC} -dumpmachine)" in
+  aarch64*|arm64*)
+    TARGET="aarch64-pc-windows-gnullvm"
+    ;;
+  *)
+    TARGET="x86_64-pc-windows-gnu"
+    ;;
+esac
+echo "using Rust target: '${TARGET}'"
+
 sed \
-  -e "s/@TARGET@/x86_64-pc-windows-gnu/" \
+  -e "s/@TARGET@/${TARGET}/" \
   -e "s/@PROFILE@/${PROFILE}/" \
   -e "s/@FEATURE_FLAGS@/${FEATURE_FLAGS}/" \
   src/Makevars.win.in > src/Makevars.win
