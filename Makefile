@@ -13,8 +13,8 @@ ROPENDAL_S3_PUBLIC_REGION ?= us-east-1
 ROPENDAL_S3_PUBLIC_FILE ?= 0/.zarray
 ROPENDAL_S3_PUBLIC_RANGE_FILE ?= 0/0/0/0/0
 ROPENDAL_S3_PUBLIC_LIST_PATH ?= 0/
-ROPENDAL_S3_MINIO_BUCKET ?= ropendal-test
-ROPENDAL_S3_MINIO_REGION ?= us-east-1
+ROPENDAL_S3_SEAWEEDFS_BUCKET ?= ropendal-test
+ROPENDAL_S3_SEAWEEDFS_REGION ?= us-east-1
 ROPENDAL_BENCH_BYTES ?= 256MiB
 ROPENDAL_BENCH_CHUNK_SIZE ?= 16MiB
 ROPENDAL_BENCH_CONCURRENCY ?= 1,2,4,8
@@ -31,13 +31,13 @@ help:
 	  '  make test-rust       run Rust unit tests in src/rust' \
 	  '  make test-http       run opt-in local HTTP fixture tests' \
 	  '  make test-s3         run opt-in public read-only S3-compatible tests' \
-	  '  make test-s3-minio   start local MinIO and run writable S3-compatible tests' \
+	  '  make test-s3-seaweedfs   start local SeaweedFS and run writable S3-compatible tests' \
 	  '  make test-sftp       start local key/password SFTP and run native integration tests' \
 	  '  make test-gdrive     run opt-in Google Drive tests using local gdrive3 JSON defaults' \
 	  '  make test-ci         run C API checks and CI-only tinytest' \
 	  '  make rdm             render README.md from README.Rmd' \
-	  '  make bench-minio-paws render development MinIO benchmark' \
-	  '  make bench-gdrive-minio-stress run Google Drive vs MinIO read stress benchmark' \
+	  '  make bench-seaweedfs-paws render development SeaweedFS benchmark' \
+	  '  make bench-gdrive-seaweedfs-stress run Google Drive vs SeaweedFS read stress benchmark' \
 	  '  make test-webr       build webR/wasm package via rwasm Docker image' \
 	  '  make check           build and run R CMD check --as-cran --no-manual'
 
@@ -109,10 +109,10 @@ test-s3: dev-install
 	ROPENDAL_S3_PUBLIC_LIST_PATH="$(ROPENDAL_S3_PUBLIC_LIST_PATH)" \
 	R -e "tinytest::test_package('$(PKGNAME)', testdir = 'inst/tinytest')"
 
-test-s3-minio: dev-install
-	ROPENDAL_S3_MINIO_BUCKET="$(ROPENDAL_S3_MINIO_BUCKET)" \
-	ROPENDAL_S3_MINIO_REGION="$(ROPENDAL_S3_MINIO_REGION)" \
-	tools/run-minio-test.sh
+test-s3-seaweedfs: dev-install
+	ROPENDAL_S3_SEAWEEDFS_BUCKET="$(ROPENDAL_S3_SEAWEEDFS_BUCKET)" \
+	ROPENDAL_S3_SEAWEEDFS_REGION="$(ROPENDAL_S3_SEAWEEDFS_REGION)" \
+	tools/run-seaweedfs-test.sh
 
 test-sftp: dev-install
 	tools/run-sftp-test.sh
@@ -146,10 +146,10 @@ rdm:
 	ROPENDAL_GDRIVE_FILE="$(ROPENDAL_GDRIVE_FILE)" \
 	R -e "rmarkdown::render('README.Rmd')"
 
-bench-minio-paws: dev-install
-	R -e "rmarkdown::render('benchmarks/minio-paws.Rmd')"
+bench-seaweedfs-paws: dev-install
+	R -e "rmarkdown::render('benchmarks/seaweedfs-paws.Rmd')"
 
-bench-gdrive-minio-stress: dev-install
+bench-gdrive-seaweedfs-stress: dev-install
 	ROPENDAL_GDRIVE_SECRET_JSON="$(ROPENDAL_GDRIVE_SECRET_JSON)" \
 	ROPENDAL_GDRIVE_TOKENS_JSON="$(ROPENDAL_GDRIVE_TOKENS_JSON)" \
 	ROPENDAL_BENCH_BYTES="$(ROPENDAL_BENCH_BYTES)" \
@@ -157,7 +157,7 @@ bench-gdrive-minio-stress: dev-install
 	ROPENDAL_BENCH_CONCURRENCY="$(ROPENDAL_BENCH_CONCURRENCY)" \
 	ROPENDAL_BENCH_GDRIVE_ROOT="$(ROPENDAL_BENCH_GDRIVE_ROOT)" \
 	ROPENDAL_BENCH_GDRIVE_FILE="$(ROPENDAL_BENCH_GDRIVE_FILE)" \
-	Rscript benchmarks/gdrive-minio-read-stress.R
+	Rscript benchmarks/gdrive-seaweedfs-read-stress.R
 
 test-webr:
 	tools/webr-build.sh
@@ -165,4 +165,4 @@ test-webr:
 site:
 	R -e "pkgdown::build_site()"
 
-.PHONY: all help rd build check install_deps install install2 install3 clean dev-install test1 test2 test0 test-fast test-rust test-local test-network test-http test-s3 test-s3-minio test-sftp test-c-api-header test-c-api-roundtrip test-ci ci test-gdrive test rdm bench-minio-paws bench-gdrive-minio-stress test-webr site
+.PHONY: all help rd build check install_deps install install2 install3 clean dev-install test1 test2 test0 test-fast test-rust test-local test-network test-http test-s3 test-s3-seaweedfs test-sftp test-c-api-header test-c-api-roundtrip test-ci ci test-gdrive test rdm bench-seaweedfs-paws bench-gdrive-seaweedfs-stress test-webr site

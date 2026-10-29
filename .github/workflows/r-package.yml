@@ -51,8 +51,8 @@ jobs:
       - name: Installed native API contract tests
         run: make test-ci
 
-  s3-minio:
-    name: Local MinIO S3-compatible tests
+  s3-seaweedfs:
+    name: Local SeaweedFS S3-compatible tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,15 +63,14 @@ jobs:
         with:
           extra-packages: any::tinytest
           needs: check
-      - name: Install MinIO and mc
+      - name: Install SeaweedFS
         run: |
-          sudo curl -fsSL -o /usr/local/bin/minio https://dl.min.io/server/minio/release/linux-amd64/minio
-          sudo curl -fsSL -o /usr/local/bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc
-          sudo chmod +x /usr/local/bin/minio /usr/local/bin/mc
-          minio --version
-          mc --version
-      - name: Writable S3-compatible tests against local MinIO
-        run: make test-s3-minio
+          curl -fsSL -o seaweedfs.tar.gz "https://github.com/seaweedfs/seaweedfs/releases/latest/download/linux_amd64.tar.gz"
+          tar -xzf seaweedfs.tar.gz weed
+          sudo install -m 0755 weed /usr/local/bin/weed
+          weed version
+      - name: Writable S3-compatible tests against local SeaweedFS
+        run: make test-s3-seaweedfs
 
   sftp:
     name: Local SFTP tests (key and password)

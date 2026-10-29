@@ -14,7 +14,7 @@ make test-local           # same intent; reserved for local filesystem coverage
 make test-network         # opt into network/service tests via env vars
 make test-http            # opt into local HTTP fixture tests via internal Rust fixture
 make test-s3              # opt into public read-only S3-compatible endpoint tests
-make test-s3-minio        # start local MinIO and run writable S3-compatible tests
+make test-s3-seaweedfs        # start local SeaweedFS and run writable S3-compatible tests
 make test-c-api-header    # compile the source C API header as pure C
 make test-c-api-roundtrip # compile/run an installed-library C API roundtrip
 make test-ci              # run C API checks plus CI-only non-network API contract tests
@@ -187,7 +187,7 @@ ROPENDAL_TEST_SFTP_PASSWORD=true
 Service env vars:
 
 - Public S3-compatible read-only endpoint: `ROPENDAL_TEST_S3=true`; `make test-s3` passes `ROPENDAL_S3_PUBLIC_ENDPOINT`, `ROPENDAL_S3_PUBLIC_BUCKET`, `ROPENDAL_S3_PUBLIC_ROOT`, `ROPENDAL_S3_PUBLIC_REGION`, `ROPENDAL_S3_PUBLIC_FILE`, `ROPENDAL_S3_PUBLIC_RANGE_FILE`, and `ROPENDAL_S3_PUBLIC_LIST_PATH`. Defaults use EMBL-EBI's public IDR object store.
-- Local writable S3-compatible endpoint: `ROPENDAL_TEST_S3_MINIO=true`; `make test-s3-minio` starts MinIO via `tools/run-minio-test.sh`, creates a bucket, and passes `ROPENDAL_S3_MINIO_ENDPOINT`, `ROPENDAL_S3_MINIO_BUCKET`, `ROPENDAL_S3_MINIO_REGION`, `ROPENDAL_S3_MINIO_ACCESS_KEY_ID`, `ROPENDAL_S3_MINIO_SECRET_ACCESS_KEY`, and `ROPENDAL_S3_MINIO_ROOT`. This target is suitable for CI because it needs no cloud credentials.
+- Local writable S3-compatible endpoint: `ROPENDAL_TEST_S3_SEAWEEDFS=true`; `make test-s3-seaweedfs` starts SeaweedFS via `tools/run-seaweedfs-test.sh`, creates a bucket through `weed mini -bucket`, and passes `ROPENDAL_S3_SEAWEEDFS_ENDPOINT`, `ROPENDAL_S3_SEAWEEDFS_BUCKET`, `ROPENDAL_S3_SEAWEEDFS_REGION`, `ROPENDAL_S3_SEAWEEDFS_ACCESS_KEY_ID`, `ROPENDAL_S3_SEAWEEDFS_SECRET_ACCESS_KEY`, and `ROPENDAL_S3_SEAWEEDFS_ROOT`. This target is suitable for CI because it needs no cloud credentials.
 - External S3 credentials, if added later: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN`, `AWS_REGION`, `ROPENDAL_TEST_S3_BUCKET`, `ROPENDAL_TEST_S3_PREFIX`.
 - GDrive: `make test-gdrive` passes `ROPENDAL_GDRIVE_SECRET_JSON`, `ROPENDAL_GDRIVE_TOKENS_JSON`, `ROPENDAL_GDRIVE_ROOT`, and `ROPENDAL_GDRIVE_FILE`; direct token/provider-chain helpers are intentionally not part of hidden core lookup.
 - SFTP: `make test-sftp` starts a disposable `atmoz/sftp` Docker container with both a key-authenticated user and a password-authenticated user. It generates the Ed25519 key and password at runtime, records the fixture host key in a temporary `HOME`, and passes `ROPENDAL_SFTP_ENDPOINT`, `ROPENDAL_SFTP_ROOT`, `ROPENDAL_SFTP_USER`, `ROPENDAL_SFTP_KEY`, `ROPENDAL_SFTP_PASSWORD_USER`, `ROPENDAL_SFTP_PASSWORD`, `ROPENDAL_TEST_SFTP=true`, `ROPENDAL_TEST_SFTP_PASSWORD=true`, and `ROPENDAL_SFTP_KNOWN_HOSTS_STRATEGY=accept` for upstream OpenDAL key testing plus `ROPENDAL_SFTP_PASSWORD_KNOWN_HOSTS_STRATEGY=strict` for the native password adapter. External tests must set either the key or password credentials for a disposable remote root; `strict` is the production default host-key policy.
@@ -198,8 +198,8 @@ Coverage:
 - auth construction redacts secrets
 - public S3-compatible read/stat/list/range reads plus async read/stat/exists/list coverage
 - HTTP fixture read/stat/range reads, unsupported listing value, async stat/exists/unsupported-listing coverage, explicit `headers=` authentication path, and delayed-response pending Aio state
-- classed capability profile checks for local `fs`, HTTP fixture, public S3, and local MinIO
-- local MinIO write/read/stat/list/copy/delete in an isolated prefix plus async write/read/stat/exists/list/copy/rename/delete coverage
+- classed capability profile checks for local `fs`, HTTP fixture, public S3, and local SeaweedFS
+- local SeaweedFS write/read/stat/list/copy/delete in an isolated prefix plus async write/read/stat/exists/list/copy/rename/delete coverage
 - key/agent SFTP and Ropendal password SFTP write/read/range/stat/exists/list/mkdir/delete/copy/rename coverage, including password append and async write/read/exists/delete; the key-service registry also has a no-network unit test
 - unsupported S3-compatible atomic rename returns an error value rather than silent emulation, sync and async
 - range reads
