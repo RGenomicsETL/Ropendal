@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 # Development-only read stress benchmark for a large Google Drive object versus
-# a local MinIO S3-compatible object. It reads only ROPENDAL_BENCH_BYTES from the
+# a local SeaweedFS S3-compatible object. It reads only ROPENDAL_BENCH_BYTES from the
 # selected file, so it is suitable for a huge Drive object such as a multi-GB
 # archive in KidneyGWAS without downloading the whole object.
 #
@@ -10,7 +10,7 @@
 #   ROPENDAL_BENCH_CONCURRENCY=1,2,4,8 \
 #   ROPENDAL_BENCH_GDRIVE_ROOT=KidneyGWAS \
 #   ROPENDAL_BENCH_GDRIVE_FILE=KidneyPROJECTFILES.zip \
-#   Rscript benchmarks/gdrive-minio-read-stress.R
+#   Rscript benchmarks/gdrive-seaweedfs-read-stress.R
 
 suppressPackageStartupMessages({
   library(Ropendal)
@@ -151,61 +151,71 @@ free_port <- function() {
   as.integer(system2("python3", c("-c", shQuote(code)), stdout = TRUE))
 }
 
-start_minio <- function() {
+start_seaweedfs <- function() {
   if (!requireNamespace("processx", quietly = TRUE)) {
-    stop("processx is required for the MinIO part of this benchmark", call. = FALSE)
+    stop("processx is required for the SeaweedFS part of this benchmark", call. = FALSE)
   }
-  minio_bin <- Sys.which("minio")
-  mc_bin <- Sys.which("mc")
-  if (!nzchar(minio_bin)) stop("minio binary is required", call. = FALSE)
-  if (!nzchar(mc_bin)) stop("mc binary is required", call. = FALSE)
+  weed_bin <- Sys.which("weed")
+  if (!nzchar(weed_bin)) stop("weed binary is required", call. = FALSE)
 
-  data_dir <- tempfile("ropendal-minio-stress-data-")
+  data_dir <- tempfile("ropendal-seaweedfs-stress-data-")
   dir.create(data_dir, recursive = TRUE)
-  log_file <- tempfile("ropendal-minio-stress-log-")
-  port <- free_port()
-  console_port <- free_port()
-  while (identical(console_port, port)) console_port <- free_port()
-  endpoint <- sprintf("http://127.0.0.1:%d", port)
-  access_key <- "minioadmin"
-  secret_key <- "minioadmin"
+  log_file <- tempfile("ropendal-seaweedfs-stress-log-")
+  ports <- integer(0)
+  while (length(ports) < 5L) {
+    port <- free_port()
+    if (!port %in% ports) ports <- c(ports, port)
+  }
+  endpoint <- sprintf("http://127.0.0.1:%d", ports[[1L]])
+  bucket <- "ropendal-stress"
+  access_key <- "ropendal-stress"
+  secret_key <- "ropendal-stress-secret"
 
-  env <- Sys.getenv()
-  env[["MINIO_ROOT_USER"]] <- access_key
-  env[["MINIO_ROOT_PASSWORD"]] <- secret_key
-  proc <- processx::process$new(
-    minio_bin,
-    c(
-      "server", data_dir,
-      "--address", sprintf("127.0.0.1:%d", port),
-      "--console-address", sprintf("127.0.0.1:%d", console_port)
+  config_file <- file.path(data_dir, "s3-identities.json")
+  writeLines(sprintf(
+    paste0(
+      '{"identities":[{"name":"%s","credentials":[{"accessKey":"%s","secretKey":"%s"}],',
+      '"actions":["Admin","Read","Write","List","Tagging"]}]}'
     ),
-    env = env,
+    access_key, access_key, secret_key
+  ), config_file)
+
+  proc <- processx::process$new(
+    weed_bin,
+    c(
+      "mini",
+      paste0("-dir=", data_dir),
+      "-ip=127.0.0.1",
+      "-ip.bind=127.0.0.1",
+      paste0("-master.port=", ports[[2L]]),
+      paste0("-filer.port=", ports[[3L]]),
+      paste0("-volume.port=", ports[[4L]]),
+      paste0("-admin.port=", ports[[5L]]),
+      "-admin.port.legacy=0",
+      paste0("-s3.port=", ports[[1L]]),
+      paste0("-s3.config=", config_file),
+      paste0("-bucket=", bucket)
+    ),
     stdout = log_file,
     stderr = log_file
   )
 
-  alias <- paste0("ropendal-stress-", Sys.getpid())
   ready <- FALSE
   for (i in seq_len(120)) {
-    ok <- processx::run(mc_bin, c("alias", "set", alias, endpoint, access_key, secret_key), error_on_status = FALSE)$status == 0
-    if (ok) {
-      ready <- TRUE
-      break
-    }
-    if (!proc$is_alive()) stop("minio exited before becoming ready; see ", log_file, call. = FALSE)
+    ready <- tryCatch({
+      close(socketConnection("127.0.0.1", ports[[1L]], open = "r", blocking = TRUE, timeout = 1))
+      TRUE
+    }, error = function(e) FALSE, warning = function(w) FALSE)
+    if (ready) break
+    if (!proc$is_alive()) stop("SeaweedFS exited before becoming ready; see ", log_file, call. = FALSE)
     Sys.sleep(0.25)
   }
-  if (!ready) stop("minio did not become ready; see ", log_file, call. = FALSE)
-
-  bucket <- "ropendal-stress"
-  processx::run(mc_bin, c("mb", "--ignore-existing", paste0(alias, "/", bucket)), error_on_status = TRUE)
+  if (!ready) stop("SeaweedFS did not become ready; see ", log_file, call. = FALSE)
 
   list(
     proc = proc,
     data_dir = data_dir,
     log_file = log_file,
-    alias = alias,
     endpoint = endpoint,
     bucket = bucket,
     access_key = access_key,
@@ -214,13 +224,11 @@ start_minio <- function() {
   )
 }
 
-cleanup_minio <- function(minio) {
-  if (is.null(minio)) return(invisible())
-  mc_bin <- Sys.which("mc")
-  if (nzchar(mc_bin)) try(processx::run(mc_bin, c("alias", "remove", minio$alias), error_on_status = FALSE), silent = TRUE)
-  try(minio$proc$kill(), silent = TRUE)
-  unlink(minio$data_dir, recursive = TRUE)
-  unlink(minio$log_file)
+cleanup_seaweedfs <- function(seaweedfs) {
+  if (is.null(seaweedfs)) return(invisible())
+  try(seaweedfs$proc$kill(), silent = TRUE)
+  unlink(seaweedfs$data_dir, recursive = TRUE)
+  unlink(seaweedfs$log_file)
   invisible()
 }
 
@@ -229,7 +237,7 @@ chunk_size <- parse_bytes(Sys.getenv("ROPENDAL_BENCH_CHUNK_SIZE", unset = ""), 1
 concurrency <- parse_ints(Sys.getenv("ROPENDAL_BENCH_CONCURRENCY", unset = ""), c(1L, 2L, 4L, 8L))
 runtime_threads <- as.integer(Sys.getenv("ROPENDAL_BENCH_RUNTIME_THREADS", unset = max(4L, max(concurrency))))
 max_inflight <- as.integer(Sys.getenv("ROPENDAL_BENCH_MAX_INFLIGHT", unset = max(16L, max(concurrency) * 2L)))
-run_minio <- !identical(tolower(Sys.getenv("ROPENDAL_BENCH_MINIO", unset = "true")), "false")
+run_seaweedfs <- !identical(tolower(Sys.getenv("ROPENDAL_BENCH_SEAWEEDFS", unset = "true")), "false")
 
 message("Stress bytes: ", fmt_bytes(total_bytes))
 message("Chunk size:   ", fmt_bytes(chunk_size))
@@ -267,22 +275,22 @@ if (nzchar(secret_json) && file.exists(secret_json) && nzchar(tokens_json) && fi
   message("Skipping Google Drive: set ROPENDAL_GDRIVE_SECRET_JSON and ROPENDAL_GDRIVE_TOKENS_JSON")
 }
 
-if (run_minio) {
-  minio <- NULL
-  minio <- start_minio()
-  on.exit(cleanup_minio(minio), add = TRUE)
+if (run_seaweedfs) {
+  seaweedfs <- NULL
+  seaweedfs <- start_seaweedfs()
+  on.exit(cleanup_seaweedfs(seaweedfs), add = TRUE)
   auth <- credentials_s3(
-    access_key_id = minio$access_key,
-    secret_access_key = minio$secret_key,
-    region = minio$region,
-    source = "minio-stress"
+    access_key_id = seaweedfs$access_key,
+    secret_access_key = seaweedfs$secret_key,
+    region = seaweedfs$region,
+    source = "seaweedfs-stress"
   )
   mfs <- opendal(
     "s3",
-    endpoint = minio$endpoint,
-    bucket = minio$bucket,
+    endpoint = seaweedfs$endpoint,
+    bucket = seaweedfs$bucket,
     root = paste0("stress-", Sys.getpid()),
-    region = minio$region,
+    region = seaweedfs$region,
     disable_config_load = TRUE,
     disable_ec2_metadata = TRUE,
     auth = auth,
@@ -290,22 +298,22 @@ if (run_minio) {
     max_inflight = max_inflight
   )
   key <- "payload.bin"
-  message("Preparing MinIO payload: ", fmt_bytes(total_bytes))
+  message("Preparing SeaweedFS payload: ", fmt_bytes(total_bytes))
   payload <- rep(as.raw(0:255), length.out = total_bytes)
-  stop_if_bad(fs_replace(mfs, key, payload, write_concurrency = as.numeric(max(concurrency)), chunk_size = as.numeric(max(5 * 1024^2, chunk_size))), "minio payload upload failed")
+  stop_if_bad(fs_replace(mfs, key, payload, write_concurrency = as.numeric(max(concurrency)), chunk_size = as.numeric(max(5 * 1024^2, chunk_size))), "seaweedfs payload upload failed")
   rm(payload)
   invisible(gc())
   invisible(payload_len(fs_read_bytes(mfs, key, offset = 0, size = min(1024^2, total_bytes))))
   for (cc in concurrency) {
-    message("minio prefix read_concurrency=", cc)
-    results[[length(results) + 1L]] <- bench_read("minio", "prefix", cc, total_bytes, read_prefix(mfs, key, total_bytes, cc, chunk_size))
+    message("seaweedfs prefix read_concurrency=", cc)
+    results[[length(results) + 1L]] <- bench_read("seaweedfs", "prefix", cc, total_bytes, read_prefix(mfs, key, total_bytes, cc, chunk_size))
   }
   for (cc in concurrency) {
-    message("minio ranges batch_concurrency=", cc)
-    results[[length(results) + 1L]] <- bench_read("minio", "ranges", cc, total_bytes, read_ranges(mfs, key, total_bytes, cc, chunk_size))
+    message("seaweedfs ranges batch_concurrency=", cc)
+    results[[length(results) + 1L]] <- bench_read("seaweedfs", "ranges", cc, total_bytes, read_ranges(mfs, key, total_bytes, cc, chunk_size))
   }
-  cleanup_minio(minio)
-  minio <- NULL
+  cleanup_seaweedfs(seaweedfs)
+  seaweedfs <- NULL
 }
 
 out <- do.call(rbind, results)

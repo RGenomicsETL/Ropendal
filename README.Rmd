@@ -251,83 +251,86 @@ verification; `"add"` trusts and records a new host key. Use either only when
 that policy is intentional, such as an ephemeral local test server. wasm/webR
 builds do not include SFTP.
 
-```{r readme-minio-helper, include = FALSE}
+```{r readme-seaweedfs-helper, include = FALSE}
 readme_run_s3 <- requireNamespace("processx", quietly = TRUE) &&
   requireNamespace("bench", quietly = TRUE) &&
   requireNamespace("paws.storage", quietly = TRUE) &&
-  nchar(Sys.which("minio")) > 0L &&
-  nchar(Sys.which("mc")) > 0L
+  nchar(Sys.which("weed")) > 0L
 
-readme_start_minio <- function() {
-  minio_bin <- Sys.which("minio")
-  mc_bin <- Sys.which("mc")
-  stopifnot(nchar(minio_bin) > 0L, nchar(mc_bin) > 0L)
+readme_start_seaweedfs <- function() {
+  weed_bin <- Sys.which("weed")
+  stopifnot(nchar(weed_bin) > 0L)
 
-  ports <- sample(11000:64000, 2L)
+  ports <- integer(0)
+  while (length(ports) < 5L) {
+    port <- sample(11000:64000, 1L)
+    if (!port %in% ports) ports <- c(ports, port)
+  }
   endpoint <- sprintf("http://127.0.0.1:%s", ports[[1L]])
-  data_dir <- tempfile("ropendal-minio-readme-data-")
+  data_dir <- tempfile("ropendal-seaweedfs-readme-data-")
   dir.create(data_dir, recursive = TRUE)
-  log_file <- tempfile("ropendal-minio-readme-log-")
+  log_file <- tempfile("ropendal-seaweedfs-readme-log-")
 
   bucket <- "ropendal-readme"
-  access_key <- "minioadmin"
+  access_key <- "ropendal-readme"
   secret_key <- paste0(sample(c(letters, LETTERS, 0:9), 24L, replace = TRUE), collapse = "")
-  alias <- paste0("ropendal-readme-", Sys.getpid())
 
-  minio_env <- Sys.getenv()
-  minio_env["MINIO_ROOT_USER"] <- access_key
-  minio_env["MINIO_ROOT_PASSWORD"] <- secret_key
-
-  minio_proc <- processx::process$new(
-    command = minio_bin,
-    args = c(
-      "server",
-      data_dir,
-      "--address",
-      sprintf("127.0.0.1:%s", ports[[1L]]),
-      "--console-address",
-      sprintf("127.0.0.1:%s", ports[[2L]])
+  config_file <- file.path(data_dir, "s3-identities.json")
+  writeLines(sprintf(
+    paste0(
+      '{"identities":[{"name":"%s","credentials":[{"accessKey":"%s","secretKey":"%s"}],',
+      '"actions":["Admin","Read","Write","List","Tagging"]}]}'
     ),
-    env = minio_env,
+    access_key, access_key, secret_key
+  ), config_file)
+
+  seaweedfs_proc <- processx::process$new(
+    command = weed_bin,
+    args = c(
+      "mini",
+      paste0("-dir=", data_dir),
+      "-ip=127.0.0.1",
+      "-ip.bind=127.0.0.1",
+      paste0("-master.port=", ports[[2L]]),
+      paste0("-filer.port=", ports[[3L]]),
+      paste0("-volume.port=", ports[[4L]]),
+      paste0("-admin.port=", ports[[5L]]),
+      "-admin.port.legacy=0",
+      paste0("-s3.port=", ports[[1L]]),
+      paste0("-s3.config=", config_file),
+      paste0("-bucket=", bucket)
+    ),
     stdout = log_file,
     stderr = log_file
   )
 
-  stop_minio <- function() {
-    try(processx::run(mc_bin, c("alias", "remove", alias), error_on_status = FALSE), silent = TRUE)
-    if (minio_proc$is_alive()) minio_proc$kill()
-    minio_proc$wait()
+  stop_seaweedfs <- function() {
+    if (seaweedfs_proc$is_alive()) seaweedfs_proc$kill()
+    seaweedfs_proc$wait()
     unlink(data_dir, recursive = TRUE)
     unlink(log_file)
   }
 
   ready <- FALSE
-  for (attempt in seq_len(80)) {
-    alias_result <- try(
-      processx::run(
-        command = mc_bin,
-        args = c("alias", "set", alias, endpoint, access_key, secret_key),
-        error_on_status = FALSE
-      ),
-      silent = TRUE
-    )
-    ready <- !inherits(alias_result, "try-error") && identical(alias_result$status, 0L)
+  for (attempt in seq_len(120)) {
+    ready <- tryCatch({
+      close(socketConnection("127.0.0.1", ports[[1L]], open = "r", blocking = TRUE, timeout = 1))
+      TRUE
+    }, error = function(e) FALSE, warning = function(w) FALSE)
     if (ready) break
-    if (!minio_proc$is_alive()) {
+    if (!seaweedfs_proc$is_alive()) {
       details <- if (file.exists(log_file)) paste(readLines(log_file, warn = FALSE), collapse = "\n") else ""
-      stop("minio exited before it was ready\n", details, call. = FALSE)
+      stop("SeaweedFS exited before it was ready\n", details, call. = FALSE)
     }
     Sys.sleep(0.25)
   }
-  if (!ready) stop("minio did not become ready", call. = FALSE)
-
-  processx::run(mc_bin, c("mb", "--ignore-existing", paste0(alias, "/", bucket)), error_on_status = TRUE)
+  if (!ready) stop("SeaweedFS did not become ready", call. = FALSE)
 
   auth <- credentials_s3(
     access_key_id = access_key,
     secret_access_key = secret_key,
     region = "us-east-1",
-    source = "readme-minio"
+    source = "readme-seaweedfs"
   )
 
   fs <- opendal(
@@ -342,7 +345,7 @@ readme_start_minio <- function() {
 
   list(
     fs = fs,
-    stop = stop_minio,
+    stop = stop_seaweedfs,
     endpoint = endpoint,
     bucket = bucket,
     access_key = access_key,
@@ -351,12 +354,12 @@ readme_start_minio <- function() {
   )
 }
 
-readme_set_aws_env <- function(minio) {
+readme_set_aws_env <- function(seaweedfs) {
   old <- Sys.getenv(c("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION"), unset = NA)
   Sys.setenv(
-    AWS_ACCESS_KEY_ID = minio$access_key,
-    AWS_SECRET_ACCESS_KEY = minio$secret_key,
-    AWS_REGION = minio$region
+    AWS_ACCESS_KEY_ID = seaweedfs$access_key,
+    AWS_SECRET_ACCESS_KEY = seaweedfs$secret_key,
+    AWS_REGION = seaweedfs$region
   )
   function() {
     for (nm in names(old)) {
@@ -366,14 +369,14 @@ readme_set_aws_env <- function(minio) {
 }
 ```
 
-### S3-compatible store (local MinIO)
+### S3-compatible store (local SeaweedFS)
 
-We set up a temporary MinIO instance behind the scenes, then check that the
+We set up a temporary SeaweedFS instance behind the scenes, then check that the
 S3-compatible store supports the same byte API.
 
 ```{r api-tour-s3-start, include = FALSE, eval = readme_run_s3}
-minio <- readme_start_minio()
-s3_fs <- minio$fs
+seaweedfs <- readme_start_seaweedfs()
+s3_fs <- seaweedfs$fs
 ```
 
 We write, read, stat, and list objects with the same `fs_*` functions.
@@ -397,16 +400,16 @@ rawToChar(collect_aio(aio))
 ```
 
 For a small local comparison, we use a larger object to compare Ropendal's
-default path with its chunked/concurrent path. Local MinIO removes most network
+default path with its chunked/concurrent path. Local SeaweedFS removes most network
 latency, so concurrency helps most when the object is large enough or when the
 store is remote; for many independent objects, use `batch_concurrency`.
 `paws.storage` is included as a single-GET baseline.
 
 ```{r api-tour-s3-bench-setup, eval = readme_run_s3}
-restore_aws_env <- readme_set_aws_env(minio)
+restore_aws_env <- readme_set_aws_env(seaweedfs)
 paws_s3 <- paws.storage::s3(
-  endpoint = minio$endpoint,
-  region = minio$region,
+  endpoint = seaweedfs$endpoint,
+  region = seaweedfs$region,
   config = list(s3_force_path_style = TRUE)
 )
 
@@ -431,7 +434,7 @@ bench::mark(
     chunk_size = write_chunk
   ),
   paws_put = {
-    paws_s3$put_object(Bucket = minio$bucket, Key = bench_key, Body = payload)
+    paws_s3$put_object(Bucket = seaweedfs$bucket, Key = bench_key, Body = payload)
     TRUE
   },
   iterations = 3,
@@ -459,7 +462,7 @@ bench::mark(
     read_concurrency = 4,
     chunk_size = read_chunk
   )),
-  paws_get = paws_s3$get_object(Bucket = minio$bucket, Key = bench_key)$Body,
+  paws_get = paws_s3$get_object(Bucket = seaweedfs$bucket, Key = bench_key)$Body,
   iterations = 3,
   check = FALSE
 )[, c("expression", "min", "median", "itr/sec", "mem_alloc", "n_gc")]
@@ -467,7 +470,7 @@ bench::mark(
 
 ```{r api-tour-s3-cleanup, include = FALSE, eval = readme_run_s3}
 restore_aws_env()
-minio$stop()
+seaweedfs$stop()
 ```
 
 ### Google Drive read example (credentials explicit)

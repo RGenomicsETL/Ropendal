@@ -3,45 +3,45 @@ library(Ropendal)
 helper <- system.file("tinytest", "helper-ropendal.R", package = "Ropendal")
 source(helper, local = TRUE)
 
-if (!ropendal_service_tests_enabled("s3_minio")) exit_file("set ROPENDAL_TEST_NETWORK=true and ROPENDAL_TEST_S3_MINIO=true to run")
+if (!ropendal_service_tests_enabled("s3_seaweedfs")) exit_file("set ROPENDAL_TEST_NETWORK=true and ROPENDAL_TEST_S3_SEAWEEDFS=true to run")
 
 required <- c(
-  "ROPENDAL_S3_MINIO_ENDPOINT",
-  "ROPENDAL_S3_MINIO_BUCKET",
-  "ROPENDAL_S3_MINIO_REGION",
-  "ROPENDAL_S3_MINIO_ACCESS_KEY_ID",
-  "ROPENDAL_S3_MINIO_SECRET_ACCESS_KEY",
-  "ROPENDAL_S3_MINIO_ROOT"
+  "ROPENDAL_S3_SEAWEEDFS_ENDPOINT",
+  "ROPENDAL_S3_SEAWEEDFS_BUCKET",
+  "ROPENDAL_S3_SEAWEEDFS_REGION",
+  "ROPENDAL_S3_SEAWEEDFS_ACCESS_KEY_ID",
+  "ROPENDAL_S3_SEAWEEDFS_SECRET_ACCESS_KEY",
+  "ROPENDAL_S3_SEAWEEDFS_ROOT"
 )
 missing <- ropendal_missing_env(required)
 if (length(missing)) exit_file(paste("missing env vars:", paste(missing, collapse = ", ")))
 
 auth <- credentials_s3(
-  access_key_id = Sys.getenv("ROPENDAL_S3_MINIO_ACCESS_KEY_ID"),
-  secret_access_key = Sys.getenv("ROPENDAL_S3_MINIO_SECRET_ACCESS_KEY"),
-  region = Sys.getenv("ROPENDAL_S3_MINIO_REGION"),
-  source = "minio-test"
+  access_key_id = Sys.getenv("ROPENDAL_S3_SEAWEEDFS_ACCESS_KEY_ID"),
+  secret_access_key = Sys.getenv("ROPENDAL_S3_SEAWEEDFS_SECRET_ACCESS_KEY"),
+  region = Sys.getenv("ROPENDAL_S3_SEAWEEDFS_REGION"),
+  source = "seaweedfs-test"
 )
 
 fs <- opendal(
   "s3",
-  endpoint = Sys.getenv("ROPENDAL_S3_MINIO_ENDPOINT"),
-  bucket = Sys.getenv("ROPENDAL_S3_MINIO_BUCKET"),
-  root = Sys.getenv("ROPENDAL_S3_MINIO_ROOT"),
+  endpoint = Sys.getenv("ROPENDAL_S3_SEAWEEDFS_ENDPOINT"),
+  bucket = Sys.getenv("ROPENDAL_S3_SEAWEEDFS_BUCKET"),
+  root = Sys.getenv("ROPENDAL_S3_SEAWEEDFS_ROOT"),
   disable_config_load = TRUE,
   disable_ec2_metadata = TRUE,
   auth = auth
 )
 
 expect_equal(fs_info(fs)$scheme, "s3")
-expect_equal(fs_info(fs)$name, Sys.getenv("ROPENDAL_S3_MINIO_BUCKET"))
-minio_caps <- fs_capabilities(fs)
-expect_true(inherits(minio_caps, "opendalCapabilityValue"))
-expect_true(minio_caps$operations$read$supported)
-expect_true(minio_caps$operations$write$supported)
-expect_true(minio_caps$operations$delete$supported)
-expect_true(minio_caps$operations$copy$supported)
-expect_true(minio_caps$operations$ls$supported)
+expect_equal(fs_info(fs)$name, Sys.getenv("ROPENDAL_S3_SEAWEEDFS_BUCKET"))
+seaweedfs_caps <- fs_capabilities(fs)
+expect_true(inherits(seaweedfs_caps, "opendalCapabilityValue"))
+expect_true(seaweedfs_caps$operations$read$supported)
+expect_true(seaweedfs_caps$operations$write$supported)
+expect_true(seaweedfs_caps$operations$delete$supported)
+expect_true(seaweedfs_caps$operations$copy$supported)
+expect_true(seaweedfs_caps$operations$ls$supported)
 
 bytes <- as.raw(c(1, 2, 3, 4, 5, 6))
 expect_true(identical(fs_write(fs, "a.bin", bytes), TRUE))

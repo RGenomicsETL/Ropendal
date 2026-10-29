@@ -26,7 +26,7 @@ Ropendal currently has a working implementation through the Apache OpenDAL Rust 
 | Network/service tests | `make test-network` | no | opt-in | implemented for S3/HTTP/GDrive/key and password SFTP; broader services planned |
 | Local HTTP fixture tests | `make test-http` | no | opt-in | implemented with internal Rust fixture, including required-header authentication coverage |
 | Public S3-compatible tests | `make test-s3` | no | opt-in network | implemented with EMBL-EBI IDR public object store |
-| Local MinIO S3-compatible tests | `make test-s3-minio` | no | CI/local service | implemented; starts MinIO with `minio`/`mc`; wired into GitHub Actions |
+| Local SeaweedFS S3-compatible tests | `make test-s3-seaweedfs` | no | CI/local service | implemented; starts SeaweedFS with `weed mini`; wired into GitHub Actions |
 | Google Drive tests | `make test-gdrive` | no | opt-in with secrets | implemented with explicit env paths |
 | Local SFTP tests | `make test-sftp` | no | Unix CI/local Docker | implemented; runs key- and password-authenticated tests against an ephemeral `atmoz/sftp` container |
 | pkgdown site | `make site` / pkgdown workflow | no | yes | implemented; GitHub Pages configured for the public repo |
@@ -36,7 +36,7 @@ GitHub Actions jobs:
 
 - `R API tinytest (non-network)` on Ubuntu, Windows, and macOS
 - `C API contract and CI-only tests` on Ubuntu, including Rust unit tests
-- `Local MinIO S3-compatible tests` on Ubuntu
+- `Local SeaweedFS S3-compatible tests` on Ubuntu
 - `Local SFTP tests (key and password)` on Ubuntu
 - `R CMD check (no CI-only/network tests)` on Ubuntu, Windows, and macOS
 - `pkgdown` site build/deploy
@@ -49,10 +49,10 @@ GitHub Actions jobs:
 | `tests/tinytest.R` entrypoint | yes | yes | yes | runs installed package tests |
 | `inst/tinytest/helper-ropendal.R` | yes | yes | yes | env gates, temp helpers |
 | CI-only gating via `ROPENDAL_TEST_CI` | yes | yes | yes | default tests skip CI-only files |
-| Network/service gating | yes | no | partial | public S3, local MinIO, HTTP fixture, Google Drive, and local key/password SFTP tests exist; other cloud service tests planned |
+| Network/service gating | yes | no | partial | public S3, local SeaweedFS, HTTP fixture, Google Drive, and local key/password SFTP tests exist; other cloud service tests planned |
 | Makefile test targets | yes | yes | yes | includes R tests, Rust unit tests, C API tests, and development benchmark rendering |
-| Development MinIO/GDrive benchmarks | yes | n/a | n/a | `benchmarks/minio-paws.Rmd` rendered to GitHub Markdown; `benchmarks/gdrive-minio-read-stress.R` / `make bench-gdrive-minio-stress` read-stresses a large Google Drive object against local MinIO; ignored from package build |
-| GitHub Actions workflow | yes | no local | defined | R API tinytest and R CMD check run on Ubuntu/Windows/macOS; C API, MinIO, and SFTP jobs run on Ubuntu; pkgdown deploy workflow exists |
+| Development SeaweedFS/GDrive benchmarks | yes | n/a | n/a | `benchmarks/seaweedfs-paws.Rmd` rendered to GitHub Markdown; `benchmarks/gdrive-seaweedfs-read-stress.R` / `make bench-gdrive-seaweedfs-stress` read-stresses a large Google Drive object against local SeaweedFS; ignored from package build |
+| GitHub Actions workflow | yes | no local | defined | R API tinytest and R CMD check run on Ubuntu/Windows/macOS; C API, SeaweedFS, and SFTP jobs run on Ubuntu; pkgdown deploy workflow exists |
 | savvy/roxygen generated wrappers and namespace | yes | yes | yes | `R/000-wrappers.R`, `src/init.c`, `src/rust/api.h`, `NAMESPACE` via `make rd` |
 | Rust modules | yes | yes | yes | `aio`, `common`, `error`, `fs`, `http_fixture`, `http_headers`, `io_iter`, `metadata`, `ops`, `path`, `r_values`, `sftp_password`, `c_api/*` |
 | configure / Makevars templates | yes | yes | yes | package tarball installs from generated `src/Makevars`; source builds support Cargo feature selection via `SAVVY_FEATURES` and `--with-rust-features`; Windows builds derive the Rust target from the C compiler so Rtools aarch64/clang uses `aarch64-pc-windows-gnullvm`; wasm builds compile a loadable C shim instead of Rust/OpenDAL |
@@ -64,14 +64,14 @@ GitHub Actions jobs:
 |---|---:|---:|---:|---:|---|
 | Rust-backed filesystem handle `OpendalFs` | yes | yes | yes | yes | local `fs`; no ad hoc `opendalFs` / `abstractFs` mutation |
 | `opendal()` / `opendal_uri()` constructors | yes | yes | yes | partial | `opendal("fs", root=)`, local `opendal_uri("fs://...")`, public S3 config, key SFTP config, and native password SFTP config tested; HTTP(S) `headers=` supported for explicit request headers |
-| declarative `fs_capabilities()` | yes | yes | partial | partial | classed Rust-built capability values; local `fs` shape/read/list support tested by default; HTTP fixture, S3 public/MinIO, and key/password SFTP service profile checks added |
+| declarative `fs_capabilities()` | yes | yes | partial | partial | classed Rust-built capability values; local `fs` shape/read/list support tested by default; HTTP fixture, S3 public/SeaweedFS, and key/password SFTP service profile checks added |
 | path normalization relative to root | yes | yes | yes | yes | escape above root errors |
 | errors as values / `opendalErrorValue` | yes | yes | yes | yes | Rust assigns S3 classes; NotFound and AlreadyExists tested |
 | vectorized `fs_read()` shape | yes | yes | yes | partial | scalar reads, many ranges for one path, list-of-ranges per path, `byte_ranges()` request objects, strict mismatch, result shaping, and read transfer tuning tested |
 | strict length matching, no recycling | yes | partial | yes | yes | read/write mismatch tests added; batch write now uses bounded async execution |
 | metadata as Rust/C-defined lists | yes | yes | yes | yes | stat/list tested |
-| `fs_write()` / `fs_write_aio()` create-only | yes | yes | yes | yes | Rust checks existence before create; accepts batch/write transfer tuning; async local and MinIO tests; R `batch_concurrency = 0` is rejected while `NULL` keeps the default |
-| `fs_replace()` / `fs_replace_aio()` replacement | yes | yes | yes | yes | local sync/async and MinIO async tests |
+| `fs_write()` / `fs_write_aio()` create-only | yes | yes | yes | yes | Rust checks existence before create; accepts batch/write transfer tuning; async local and SeaweedFS tests; R `batch_concurrency = 0` is rejected while `NULL` keeps the default |
+| `fs_replace()` / `fs_replace_aio()` replacement | yes | yes | yes | yes | local sync/async and SeaweedFS async tests |
 | `fs_append()` / `fs_append_aio()` separate append op | yes | partial | no | yes | local `fs` roundtrip in installed C API; R async API wired; broader backend capability coverage remains service-dependent |
 | `fs_read_iter()` chunked reads | yes | yes | yes | no | one path returns a seekable/tellable iterator; many paths return a list; local test |
 | `OpendalBytes` / `fs_read_bytes()` / `fs_read_bytes_aio()` | yes | yes | yes | no | Rust-owned immutable byte handles; `length()` is handle-backed; `as.raw()` returns an ALTREP raw facade with `Elt`/`Get_region` before R-owned materialization; writable `DATAPTR()` materializes; writes accept handles without rerouting through another R raw vector |
@@ -79,9 +79,9 @@ GitHub Actions jobs:
 | `store_cache()` / `store_block_cache()` explicit local byte-store caches | yes | yes | yes | no | full-object cache for complete store-key reads and fixed-size block cache for scalar `result = "auto"` complete/range store reads using a local OpenDAL `fs` cache store; tests cover validation, stale-cache mode, size-mismatch refresh and whole-key size-cycle/partial-miss invalidation for `validate = "none"`, byte handles, vectorized full-object and async/raw block reads, whole-request corrupted block-payload repair, bypassed shapes, invalidation, async mutation wrappers, clear, and pure-R chunked-array cache refresh |
 | `fs_write_iter()` chunked writes | yes | yes | yes | no | one path returns a tellable sink; many paths return a list; seek intentionally unsupported; local test |
 | `fs_ls_iter()` / `fs_walk_iter()` streaming namespace traversal | yes | yes | yes | no | Rust-backed `OpendalLsIter` with `page_size`, `limit`, `start_after`, best-effort page `cursor`, explicit `prefetch` buffering, `*_next()`, and `*_collect()`; empty listing, paged/limited/prefetched root listing, continuation filtering, cursor markers, and recursive local walk tested |
-| `fs_stat()` / `fs_stats()` / `fs_exists()` and `_aio()` | yes | yes | yes | partial | metadata/existence sync plus async local, HTTP fixture, public S3, MinIO, and key/password SFTP tests; `fs_stats*` aliases vectorized `fs_stat*` |
-| `fs_ls()` / `fs_ls_aio()` | yes | yes | yes | partial | root entry filtered for local `fs`; `limit`/`start_after` wired through OpenDAL list options and client filtering; sync listing tested for local, public S3, MinIO, and key/password SFTP; HTTP unsupported value tested sync and async |
-| `fs_mkdir()` / `fs_delete()` / `fs_copy()` / `fs_rename()` and `_aio()` | yes | yes | yes | partial | direct sync methods tested; async local namespace tests; MinIO covers S3 copy/delete and unsupported/supported atomic rename outcomes; key/password SFTP covers mkdir/delete/copy/rename synchronously and copy/rename/delete asynchronously |
+| `fs_stat()` / `fs_stats()` / `fs_exists()` and `_aio()` | yes | yes | yes | partial | metadata/existence sync plus async local, HTTP fixture, public S3, SeaweedFS, and key/password SFTP tests; `fs_stats*` aliases vectorized `fs_stat*` |
+| `fs_ls()` / `fs_ls_aio()` | yes | yes | yes | partial | root entry filtered for local `fs`; `limit`/`start_after` wired through OpenDAL list options and client filtering; sync listing tested for local, public S3, SeaweedFS, and key/password SFTP; HTTP unsupported value tested sync and async |
+| `fs_mkdir()` / `fs_delete()` / `fs_copy()` / `fs_rename()` and `_aio()` | yes | yes | yes | partial | direct sync methods tested; async local namespace tests; SeaweedFS covers S3 copy/delete and unsupported/supported atomic rename outcomes; key/password SFTP covers mkdir/delete/copy/rename synchronously and copy/rename/delete asynchronously |
 | `serial_config(class, sfunc, ufunc)` / `serialize_raw()` / `deserialize_raw()` / `mode = "serial"` | yes | yes | yes | no | base serialization, custom class envelopes, `opt(fs, "serial")`, sync/Aio read/write materialization, vectorized serial writes, reset via `list()`, and partial-range rejection tested locally |
 | `mode = "text"` / `encoding =` explicit text layer | yes | yes | yes | no | sync/Aio read/write materialization, vectorized text writes, UTF-8 and Latin-1 boundaries, NUL-producing encoding rejection, text+codec composition, and partial-range rejection tested locally |
 | `codec_config()` / `codec =` explicit native byte-codec layer | yes | partial | yes | yes | `identity`, `gzip`, and `zlib` native transforms; sync/Aio raw and serial/text+codec local roundtrips; C API byte-handle encode/decode roundtrip |
@@ -93,8 +93,8 @@ GitHub Actions jobs:
 | Contract | Documented | Implemented | Tested default | Tested CI | Notes |
 |---|---:|---:|---:|---:|---|
 | generic `OpendalAio` native result future | yes | yes | yes | partial | bytes, unit, bool, metadata, entries, many, error, cancelled outcome family implemented; service-specific pending-state checks use HTTP fixture |
-| `_aio()` for metadata/namespace operations | yes | yes | yes | partial | stat/stats, exists, ls, mkdir, delete, copy, rename implemented; local plus HTTP/S3/MinIO service coverage added where supported |
-| `_aio()` for writes | yes | yes | yes | partial | write, replace, append API implemented; local and MinIO cover write/replace; append remains backend-dependent |
+| `_aio()` for metadata/namespace operations | yes | yes | yes | partial | stat/stats, exists, ls, mkdir, delete, copy, rename implemented; local plus HTTP/S3/SeaweedFS service coverage added where supported |
+| `_aio()` for writes | yes | yes | yes | partial | write, replace, append API implemented; local and SeaweedFS cover write/replace; append remains backend-dependent |
 | active bindings `$value` / `$data` / `$result` / `$state` / `$resolved` / `$error` | yes | yes | partial | partial | generated Aio wrappers are decorated with read-only active bindings; post-resolution behavior tested by default, deterministic pending behavior tested with delayed local HTTP fixture |
 | `unresolved()` | yes | yes | partial | partial | no-arg sentinel plus `unresolved(aio)` / `unresolved(value)` predicate; deterministic pending predicates tested with delayed local HTTP fixture |
 | `call_aio()` / `collect_aio()` | yes | yes | yes | partial | `call_aio()` waits/updates and returns aio invisibly, including delayed pending HTTP fixture Aio; `collect_aio()` returns value |
@@ -146,7 +146,7 @@ store adapter to reveal abstraction gaps before freezing the substrate.
 7. Finalize the S7 credential-provider contract, and decide whether to add an `s7contract` interface/trait layer for third-party providers.
 8. Expand capability tests for additional service profiles and consider higher-level capability interfaces for consumers.
 9. Add more service coverage for explicit cloud credential helpers and any provider-specific readers that remain opt-in and non-ambient.
-10. Add richer service-level async tests for additional providers beyond current HTTP/S3/MinIO/SFTP coverage.
+10. Add richer service-level async tests for additional providers beyond current HTTP/S3/SeaweedFS/SFTP coverage.
 
 ## Deferred milestones
 

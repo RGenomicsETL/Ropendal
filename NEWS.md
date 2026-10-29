@@ -7,9 +7,12 @@
   `russh`/`russh-sftp`, while retaining Unix OpenDAL key/agent SFTP support.
   Both paths use strict host-key verification by default and have disposable
   local Docker integration coverage; wasm/webR builds reject SFTP explicitly.
+- Testing: the writable local S3-compatible tests and development benchmarks
+  now run against SeaweedFS (`weed mini`) instead of MinIO. Their environment
+  variables move from `ROPENDAL_*_S3_MINIO_*` to `ROPENDAL_*_S3_SEAWEEDFS_*`.
 - Documentation: expanded README examples for batched I/O, async Aio handles,
   serializers/codecs, Arrow IPC streams via nanoarrow, lower-level iterators,
-  S3-compatible MinIO benchmarking, and native C API scheduling.
+  S3-compatible SeaweedFS benchmarking, and native C API scheduling.
 - Documentation: aligned design notes, roxygen docs, and vignettes with the
   current async, credential, serializer, and native C API behavior.
 - Documentation: documented R-universe Linux binary repository setup.
