@@ -5,8 +5,8 @@
 
 <!-- badges: start -->
 
-[![R-CMD-check](https://github.com/sounkou-bioinfo/Ropendal/actions/workflows/r-package.yml/badge.svg)](https://github.com/sounkou-bioinfo/Ropendal/actions/workflows/r-package.yml)
-[![R-universe](https://sounkou-bioinfo.r-universe.dev/badges/Ropendal)](https://sounkou-bioinfo.r-universe.dev/Ropendal)
+[![R-CMD-check](https://github.com/RGenomicsETL/Ropendal/actions/workflows/r-package.yml/badge.svg)](https://github.com/RGenomicsETL/Ropendal/actions/workflows/r-package.yml)
+[![R-universe](https://rgenomicsetl.r-universe.dev/badges/Ropendal)](https://rgenomicsetl.r-universe.dev/Ropendal)
 [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
@@ -46,7 +46,7 @@ Ropendal is available from R-universe:
 ``` r
 install.packages(
   "Ropendal",
-  repos = c("https://sounkou-bioinfo.r-universe.dev", "https://cloud.r-project.org")
+  repos = c("https://rgenomicsetl.r-universe.dev", "https://cloud.r-project.org")
 )
 ```
 
@@ -58,7 +58,7 @@ and CRAN dependencies:
 ``` r
 options(repos = c(
   Ropendal = sprintf(
-    "https://sounkou-bioinfo.r-universe.dev/bin/linux/noble-%s/%s/",
+    "https://rgenomicsetl.r-universe.dev/bin/linux/noble-%s/%s/",
     R.version$arch,
     substr(getRversion(), 1, 3)
   ),
@@ -85,7 +85,7 @@ custom provider wiring.
 # Keep only local filesystem and password-authenticated SFTP support.
 install.packages(
   "Ropendal",
-  repos = c("https://sounkou-bioinfo.r-universe.dev", "https://cloud.r-project.org"),
+  repos = c("https://rgenomicsetl.r-universe.dev", "https://cloud.r-project.org"),
   type = "source",
   configure.args = "--without-default-rust-features --with-rust-features=fs,sftp-password"
 )
@@ -93,7 +93,7 @@ install.packages(
 # Add the current cloud-service feature group explicitly.
 install.packages(
   "Ropendal",
-  repos = c("https://sounkou-bioinfo.r-universe.dev", "https://cloud.r-project.org"),
+  repos = c("https://rgenomicsetl.r-universe.dev", "https://cloud.r-project.org"),
   type = "source",
   configure.args = "--enable-cloud"
 )
@@ -375,9 +375,9 @@ bench::mark(
 #> # A tibble: 3 × 5
 #>   expression                       min   median `itr/sec` mem_alloc
 #>   <bch:expr>                  <bch:tm> <bch:tm>     <dbl> <bch:byt>
-#> 1 ropendal_replace             126.7ms  134.6ms      7.58        0B
-#> 2 ropendal_replace_concurrent   77.1ms   77.7ms      7.72        0B
-#> 3 paws_put                       744ms    744ms      1.34    67.7MB
+#> 1 ropendal_replace               247ms    317ms      3.18        0B
+#> 2 ropendal_replace_concurrent    341ms    415ms      2.56        0B
+#> 3 paws_put                       732ms    732ms      1.37    67.7MB
 ```
 
 Then we compare download paths. The Ropendal rows separate default
@@ -407,11 +407,11 @@ bench::mark(
 #> # A tibble: 5 × 5
 #>   expression                        min   median `itr/sec` mem_alloc
 #>   <bch:expr>                   <bch:tm> <bch:tm>     <dbl> <bch:byt>
-#> 1 ropendal_read                  49.4ms   49.4ms      20.2      64MB
-#> 2 ropendal_read_concurrent       33.1ms   34.4ms      29.1      64MB
-#> 3 ropendal_read_aio              40.3ms   40.8ms      24.5      64MB
-#> 4 ropendal_read_aio_concurrent   32.4ms   32.4ms      30.8      64MB
-#> 5 paws_get                       56.2ms   58.3ms      17.1    64.3MB
+#> 1 ropendal_read                  48.1ms   48.1ms      20.8      64MB
+#> 2 ropendal_read_concurrent       34.4ms   35.6ms      28.1      64MB
+#> 3 ropendal_read_aio              42.3ms   43.6ms      23.0      64MB
+#> 4 ropendal_read_aio_concurrent   31.6ms   31.6ms      31.6      64MB
+#> 5 paws_get                       56.2ms   63.8ms      15.8    64.3MB
 ```
 
 ### Google Drive read example (credentials explicit)

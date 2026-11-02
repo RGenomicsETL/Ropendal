@@ -35,7 +35,6 @@ src/symbols.rds
 
 # Rust build outputs
 src/rust/target/
-src/rust/vendor/
 **/target/
 
 # Tooling caches

@@ -44,6 +44,9 @@ sftp = ["opendal/services-sftp"]
 sftp-password = ["dep:russh", "dep:russh-sftp"]
 cloud = ["s3", "gcs", "azblob", "gdrive"]
 
+[patch.crates-io]
+opendal-service-gdrive = { path = "vendor/opendal-service-gdrive" }
+
 [profile.release]
 panic = "abort"
 lto = true

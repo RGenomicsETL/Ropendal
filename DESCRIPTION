@@ -17,8 +17,8 @@ Description: Provides a byte-oriented abstract filesystem interface for R backed
     'nanonext', pluggable raw-vector serializers, and a native C API for direct
     async byte access by other R packages.
 License: GPL (>= 3)
-URL: https://github.com/sounkou-bioinfo/Ropendal, https://sounkou-bioinfo.github.io/Ropendal
-BugReports: https://github.com/sounkou-bioinfo/Ropendal/issues
+URL: https://github.com/RGenomicsETL/Ropendal, https://rgenomicsetl.github.io/Ropendal
+BugReports: https://github.com/RGenomicsETL/Ropendal/issues
 SystemRequirements: Cargo (Rust's package manager), rustc >= 1.88.0, GNU make,
     OpenSSH client (Unix key/agent SFTP support)
 Encoding: UTF-8

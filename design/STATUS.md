@@ -18,7 +18,7 @@ Ropendal currently has a working implementation through the Apache OpenDAL Rust 
 |---|---|---:|---:|---|
 | R package build | `R CMD build .` | yes | yes | implemented/tested |
 | Default tinytest | `make test-fast` | yes | yes | implemented/tested-default |
-| Rust unit tests | `make test-rust` | yes | yes | implemented/tested-default |
+| Rust unit tests | `make test-rust` | yes | yes | implemented/tested-default; includes vendored Google Drive resumable-writer protocol/state tests |
 | C API source-header compile check | `make test-c-api-header` | no | yes | implemented/tested-ci |
 | Installed C API roundtrip | `make test-c-api-roundtrip` | no | yes | implemented/tested-ci; covers timeout polling and unsupported write-header rejection |
 | Installed C API contract lint | `make test-ci` | no | yes | implemented/tested-ci |
@@ -26,8 +26,8 @@ Ropendal currently has a working implementation through the Apache OpenDAL Rust 
 | Network/service tests | `make test-network` | no | opt-in | implemented for S3/HTTP/GDrive/key and password SFTP; broader services planned |
 | Local HTTP fixture tests | `make test-http` | no | opt-in | implemented with internal Rust fixture, including required-header authentication coverage |
 | Public S3-compatible tests | `make test-s3` | no | opt-in network | implemented with EMBL-EBI IDR public object store |
-| Local MinIO S3-compatible tests | `make test-s3-minio` | no | CI/local service | implemented; starts MinIO with `minio`/`mc`; wired into GitHub Actions |
-| Google Drive tests | `make test-gdrive` | no | opt-in with secrets | implemented with explicit env paths |
+| Writable S3-compatible tests | `make test-s3-minio` | no | CI/local service | implemented; starts MinIO locally by default or uses an external endpoint; GitHub Actions runs the contract against pinned SeaweedFS |
+| Google Drive tests | `make test-gdrive` | no | opt-in with secrets | implemented with explicit env paths; covers a repeated-write 64 MiB resumable object, stat/range boundaries, create-only, replacement, zero-byte close, and delete |
 | Local SFTP tests | `make test-sftp` | no | Unix CI/local Docker | implemented; runs key- and password-authenticated tests against an ephemeral `atmoz/sftp` container |
 | pkgdown site | `make site` / pkgdown workflow | no | yes | implemented; GitHub Pages configured for the public repo |
 | webR/wasm package build | `make test-webr` | no | yes | wasm build shim implemented for package load; OpenDAL-backed operations currently return explicit unsupported errors in webR |
@@ -36,7 +36,7 @@ GitHub Actions jobs:
 
 - `R API tinytest (non-network)` on Ubuntu, Windows, and macOS
 - `C API contract and CI-only tests` on Ubuntu, including Rust unit tests
-- `Local MinIO S3-compatible tests` on Ubuntu
+- `Local SeaweedFS S3-compatible tests` on Ubuntu
 - `Local SFTP tests (key and password)` on Ubuntu
 - `R CMD check (no CI-only/network tests)` on Ubuntu, Windows, and macOS
 - `pkgdown` site build/deploy
@@ -49,10 +49,10 @@ GitHub Actions jobs:
 | `tests/tinytest.R` entrypoint | yes | yes | yes | runs installed package tests |
 | `inst/tinytest/helper-ropendal.R` | yes | yes | yes | env gates, temp helpers |
 | CI-only gating via `ROPENDAL_TEST_CI` | yes | yes | yes | default tests skip CI-only files |
-| Network/service gating | yes | no | partial | public S3, local MinIO, HTTP fixture, Google Drive, and local key/password SFTP tests exist; other cloud service tests planned |
+| Network/service gating | yes | no | partial | public S3, writable S3-compatible, HTTP fixture, Google Drive, and local key/password SFTP tests exist; other cloud service tests planned |
 | Makefile test targets | yes | yes | yes | includes R tests, Rust unit tests, C API tests, and development benchmark rendering |
 | Development MinIO/GDrive benchmarks | yes | n/a | n/a | `benchmarks/minio-paws.Rmd` rendered to GitHub Markdown; `benchmarks/gdrive-minio-read-stress.R` / `make bench-gdrive-minio-stress` read-stresses a large Google Drive object against local MinIO; ignored from package build |
-| GitHub Actions workflow | yes | no local | defined | R API tinytest and R CMD check run on Ubuntu/Windows/macOS; C API, MinIO, and SFTP jobs run on Ubuntu; pkgdown deploy workflow exists |
+| GitHub Actions workflow | yes | no local | defined | R API tinytest and R CMD check run on Ubuntu/Windows/macOS; C API, SeaweedFS S3-compatible, and SFTP jobs run on Ubuntu; pkgdown deploy workflow exists |
 | savvy/roxygen generated wrappers and namespace | yes | yes | yes | `R/000-wrappers.R`, `src/init.c`, `src/rust/api.h`, `NAMESPACE` via `make rd` |
 | Rust modules | yes | yes | yes | `aio`, `common`, `error`, `fs`, `http_fixture`, `http_headers`, `io_iter`, `metadata`, `ops`, `path`, `r_values`, `sftp_password`, `c_api/*` |
 | configure / Makevars templates | yes | yes | yes | package tarball installs from generated `src/Makevars`; source builds support Cargo feature selection via `SAVVY_FEATURES` and `--with-rust-features`; Windows builds derive the Rust target from the C compiler so Rtools aarch64/clang uses `aarch64-pc-windows-gnullvm`; wasm builds compile a loadable C shim instead of Rust/OpenDAL |
@@ -70,14 +70,14 @@ GitHub Actions jobs:
 | vectorized `fs_read()` shape | yes | yes | yes | partial | scalar reads, many ranges for one path, list-of-ranges per path, `byte_ranges()` request objects, strict mismatch, result shaping, and read transfer tuning tested |
 | strict length matching, no recycling | yes | partial | yes | yes | read/write mismatch tests added; batch write now uses bounded async execution |
 | metadata as Rust/C-defined lists | yes | yes | yes | yes | stat/list tested |
-| `fs_write()` / `fs_write_aio()` create-only | yes | yes | yes | yes | Rust checks existence before create; accepts batch/write transfer tuning; async local and MinIO tests; R `batch_concurrency = 0` is rejected while `NULL` keeps the default |
-| `fs_replace()` / `fs_replace_aio()` replacement | yes | yes | yes | yes | local sync/async and MinIO async tests |
+| `fs_write()` / `fs_write_aio()` create-only | yes | yes | yes | yes | Rust checks existence before create; accepts batch/write transfer tuning; async local and writable S3-compatible tests plus opt-in Google Drive `AlreadyExists` coverage; R `batch_concurrency = 0` is rejected while `NULL` keeps the default |
+| `fs_replace()` / `fs_replace_aio()` replacement | yes | yes | yes | yes | local sync/async and writable S3-compatible async tests; Google Drive replacement covered opt-in |
 | `fs_append()` / `fs_append_aio()` separate append op | yes | partial | no | yes | local `fs` roundtrip in installed C API; R async API wired; broader backend capability coverage remains service-dependent |
 | `fs_read_iter()` chunked reads | yes | yes | yes | no | one path returns a seekable/tellable iterator; many paths return a list; local test |
 | `OpendalBytes` / `fs_read_bytes()` / `fs_read_bytes_aio()` | yes | yes | yes | no | Rust-owned immutable byte handles; `length()` is handle-backed; `as.raw()` returns an ALTREP raw facade with `Elt`/`Get_region` before R-owned materialization; writable `DATAPTR()` materializes; writes accept handles without rerouting through another R raw vector |
 | `byte_store()` / `store_*()` key-to-bytes adapter | yes | yes | yes | no | R-side prefix adapter for Zarr-like layouts; `store_read()` is bytes-first; local tests cover raw and byte-handle reads, vectorized writes, create-vs-replace, listing path rewriting, async wrappers, delete, escape rejection, and a pure-R chunked-array roundtrip |
 | `store_cache()` / `store_block_cache()` explicit local byte-store caches | yes | yes | yes | no | full-object cache for complete store-key reads and fixed-size block cache for scalar `result = "auto"` complete/range store reads using a local OpenDAL `fs` cache store; tests cover validation, stale-cache mode, size-mismatch refresh and whole-key size-cycle/partial-miss invalidation for `validate = "none"`, byte handles, vectorized full-object and async/raw block reads, whole-request corrupted block-payload repair, bypassed shapes, invalidation, async mutation wrappers, clear, and pure-R chunked-array cache refresh |
-| `fs_write_iter()` chunked writes | yes | yes | yes | no | one path returns a tellable sink; many paths return a list; seek intentionally unsupported; local test |
+| `fs_write_iter()` chunked writes | yes | yes | yes | no | one path returns a tellable sink; many paths return a list; seek intentionally unsupported; local test plus opt-in 64 MiB Google Drive resumable-write coverage |
 | `fs_ls_iter()` / `fs_walk_iter()` streaming namespace traversal | yes | yes | yes | no | Rust-backed `OpendalLsIter` with `page_size`, `limit`, `start_after`, best-effort page `cursor`, explicit `prefetch` buffering, `*_next()`, and `*_collect()`; empty listing, paged/limited/prefetched root listing, continuation filtering, cursor markers, and recursive local walk tested |
 | `fs_stat()` / `fs_stats()` / `fs_exists()` and `_aio()` | yes | yes | yes | partial | metadata/existence sync plus async local, HTTP fixture, public S3, MinIO, and key/password SFTP tests; `fs_stats*` aliases vectorized `fs_stat*` |
 | `fs_ls()` / `fs_ls_aio()` | yes | yes | yes | partial | root entry filtered for local `fs`; `limit`/`start_after` wired through OpenDAL list options and client filtering; sync listing tested for local, public S3, MinIO, and key/password SFTP; HTTP unsupported value tested sync and async |

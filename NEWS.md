@@ -3,6 +3,11 @@
 ## Ropendal 0.0.1.9000
 
 - Development version after 0.0.1.
+- Documentation: updated GitHub, pkgdown, and R-universe links for the
+  RGenomicsETL organization.
+- Google Drive: writes now use bounded-memory Drive v3 resumable uploads,
+  including iterator writes, zero-byte objects, create-only checks, replacement,
+  and retry reconciliation through committed offsets.
 - SFTP: added a native password-authenticated SFTP adapter built with pure-Rust
   `russh`/`russh-sftp`, while retaining Unix OpenDAL key/agent SFTP support.
   Both paths use strict host-key verification by default and have disposable

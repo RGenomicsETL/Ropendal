@@ -11,8 +11,8 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 # Ropendal
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/sounkou-bioinfo/Ropendal/actions/workflows/r-package.yml/badge.svg)](https://github.com/sounkou-bioinfo/Ropendal/actions/workflows/r-package.yml)
-[![R-universe](https://sounkou-bioinfo.r-universe.dev/badges/Ropendal)](https://sounkou-bioinfo.r-universe.dev/Ropendal)
+[![R-CMD-check](https://github.com/RGenomicsETL/Ropendal/actions/workflows/r-package.yml/badge.svg)](https://github.com/RGenomicsETL/Ropendal/actions/workflows/r-package.yml)
+[![R-universe](https://rgenomicsetl.r-universe.dev/badges/Ropendal)](https://rgenomicsetl.r-universe.dev/Ropendal)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
@@ -52,7 +52,7 @@ Ropendal is available from R-universe:
 ```{r install-default, eval = FALSE}
 install.packages(
   "Ropendal",
-  repos = c("https://sounkou-bioinfo.r-universe.dev", "https://cloud.r-project.org")
+  repos = c("https://rgenomicsetl.r-universe.dev", "https://cloud.r-project.org")
 )
 ```
 
@@ -63,7 +63,7 @@ R-universe also publishes Linux binaries for Ubuntu `noble` on `x86_64` and
 ```{r install-linux-binaries, eval = FALSE}
 options(repos = c(
   Ropendal = sprintf(
-    "https://sounkou-bioinfo.r-universe.dev/bin/linux/noble-%s/%s/",
+    "https://rgenomicsetl.r-universe.dev/bin/linux/noble-%s/%s/",
     R.version$arch,
     substr(getRversion(), 1, 3)
   ),
@@ -89,7 +89,7 @@ provider wiring.
 # Keep only local filesystem and password-authenticated SFTP support.
 install.packages(
   "Ropendal",
-  repos = c("https://sounkou-bioinfo.r-universe.dev", "https://cloud.r-project.org"),
+  repos = c("https://rgenomicsetl.r-universe.dev", "https://cloud.r-project.org"),
   type = "source",
   configure.args = "--without-default-rust-features --with-rust-features=fs,sftp-password"
 )
@@ -97,7 +97,7 @@ install.packages(
 # Add the current cloud-service feature group explicitly.
 install.packages(
   "Ropendal",
-  repos = c("https://sounkou-bioinfo.r-universe.dev", "https://cloud.r-project.org"),
+  repos = c("https://rgenomicsetl.r-universe.dev", "https://cloud.r-project.org"),
   type = "source",
   configure.args = "--enable-cloud"
 )

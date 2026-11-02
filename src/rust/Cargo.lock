@@ -1984,8 +1984,6 @@ dependencies = [
 [[package]]
 name = "opendal-service-gdrive"
 version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "526926ce13da1bd128f05c48af703793817f5b711631ad692569837b32969896"
 dependencies = [
  "bytes",
  "http",

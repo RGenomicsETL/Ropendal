@@ -789,3 +789,32 @@ Ropendal has the parent-object range primitives, but the exercise highlights
 public `store_stat()` / C store-stat and possibly structured immediate-directory
 listing as seal-candidate gaps. Writable ZIP remains out of scope for the
 key-to-bytes store because it needs archive transaction/finalization semantics.
+
+### Google Drive resumable write contract
+
+Status: `implemented`
+
+Google Drive create and replacement writes use the Drive v3 resumable protocol
+through the vendored `opendal-service-gdrive` 0.57.0 service. The writer keeps at
+most one 256 KiB pending chunk, sends aligned non-final payloads, supplies the
+known total on close, and handles zero-byte close. A `308 Resume Incomplete`
+response advances state from its `Range` header. Retryable transport and HTTP
+failures query the session before retransmission, so retries resume at the
+reported committed offset instead of duplicating bytes. An exhausted ambiguous
+failure invalidates the writer and drops its session state rather than allowing
+an unreconciled retransmission.
+
+Sessions remain process-local. Abort discards the session URL and buffered
+state, and failed sessions are not persisted or restarted. Create-only writes
+refresh the existing path before returning `AlreadyExists`; Google Drive still
+does not provide atomic name uniqueness, so concurrent create-only writers have
+a provider-level race. Serialization, public R/provider APIs, local-file upload
+helpers, and MD5 policy remain outside this service patch.
+
+### Writable S3-compatible CI service
+
+Status: `implemented`
+
+`make test-s3-minio` retains its local MinIO default and accepts the existing
+`ROPENDAL_S3_MINIO_*` variables for an externally managed endpoint. GitHub
+Actions uses that contract with a version- and digest-pinned SeaweedFS service.

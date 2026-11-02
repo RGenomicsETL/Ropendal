@@ -89,6 +89,7 @@ test-rust:
 	else \
 	  cargo test --manifest-path=src/rust/Cargo.toml; \
 	fi
+	cargo test --manifest-path=src/rust/vendor/opendal-service-gdrive/Cargo.toml
 
 test-local: test-fast
 

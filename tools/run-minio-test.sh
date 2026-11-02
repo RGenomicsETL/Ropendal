@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+run_tests() {
+  ROPENDAL_TEST_NETWORK=true \
+  ROPENDAL_TEST_S3_MINIO=true \
+  R -e "tinytest::test_package('Ropendal', testdir = 'inst/tinytest')"
+}
+
+if [ -n "${ROPENDAL_S3_MINIO_ENDPOINT:-}" ]; then
+  : "${ROPENDAL_S3_MINIO_BUCKET:?ROPENDAL_S3_MINIO_BUCKET is required}"
+  : "${ROPENDAL_S3_MINIO_REGION:?ROPENDAL_S3_MINIO_REGION is required}"
+  : "${ROPENDAL_S3_MINIO_ACCESS_KEY_ID:?ROPENDAL_S3_MINIO_ACCESS_KEY_ID is required}"
+  : "${ROPENDAL_S3_MINIO_SECRET_ACCESS_KEY:?ROPENDAL_S3_MINIO_SECRET_ACCESS_KEY is required}"
+  : "${ROPENDAL_S3_MINIO_ROOT:?ROPENDAL_S3_MINIO_ROOT is required}"
+  run_tests
+  exit 0
+fi
+
 if ! command -v minio >/dev/null 2>&1; then
   echo "minio binary is required for make test-s3-minio" >&2
   exit 127
@@ -81,12 +97,10 @@ fi
 
 mc mb --ignore-existing "$ALIAS/$BUCKET" >/dev/null
 
-ROPENDAL_TEST_NETWORK=true \
-ROPENDAL_TEST_S3_MINIO=true \
 ROPENDAL_S3_MINIO_ENDPOINT="$ENDPOINT" \
 ROPENDAL_S3_MINIO_BUCKET="$BUCKET" \
 ROPENDAL_S3_MINIO_REGION="$REGION" \
 ROPENDAL_S3_MINIO_ACCESS_KEY_ID="$ACCESS_KEY" \
 ROPENDAL_S3_MINIO_SECRET_ACCESS_KEY="$SECRET_KEY" \
 ROPENDAL_S3_MINIO_ROOT="$ROOT" \
-R -e "tinytest::test_package('Ropendal', testdir = 'inst/tinytest')"
+run_tests
